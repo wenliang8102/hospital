@@ -1,0 +1,647 @@
+openapi: 3.1.0
+info:
+  title: Hospital HIS API
+  version: 0.1.0
+  description: 第一阶段并行开发接口契约。所有受保护接口使用 Bearer JWT。
+servers:
+  - url: http://localhost:8090
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: MasterData
+  - name: Registration
+  - name: Outpatient
+  - name: MedicalTech
+  - name: Pharmacy
+paths:
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: 用户登录
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: 获取当前用户
+      operationId: currentUser
+      responses:
+        '200':
+          description: 当前用户
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileEnvelope'
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: 退出登录
+      description: JWT 为无状态令牌，服务端返回成功，客户端删除令牌。
+      operationId: logout
+      responses:
+        '204':
+          description: 已退出
+  /api/master-data/departments:
+    get:
+      tags: [MasterData]
+      summary: 查询有效科室
+      operationId: listDepartments
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/DepartmentType'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListResponse'
+  /api/master-data/employees:
+    get:
+      tags: [MasterData]
+      summary: 查询有效员工
+      operationId: listEmployees
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: departmentId
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          $ref: '#/components/responses/ListResponse'
+  /api/master-data/{resource}:
+    get:
+      tags: [MasterData]
+      summary: 查询其他基础数据
+      description: resource 可为 regist-levels、settle-categories、diseases、medical-technologies、drugs。
+      operationId: listMasterData
+      parameters:
+        - name: resource
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [regist-levels, settle-categories, diseases, medical-technologies, drugs]
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PageResponse'
+  /api/registration/case-numbers:
+    post:
+      tags: [Registration]
+      summary: 生成病历号
+      operationId: generateCaseNumber
+      responses:
+        '200':
+          description: 新病历号
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringEnvelope'
+  /api/registrations:
+    post:
+      tags: [Registration]
+      summary: 创建挂号
+      operationId: createRegistration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRegistrationRequest'
+      responses:
+        '200':
+          description: 挂号结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationEnvelope'
+    get:
+      tags: [Registration]
+      summary: 分页查询挂号
+      operationId: searchRegistrations
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: state
+          in: query
+          schema: { $ref: '#/components/schemas/VisitState' }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PageResponse'
+  /api/registrations/{registrationId}/cancel:
+    post:
+      tags: [Registration]
+      summary: 退号
+      operationId: cancelRegistration
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      responses:
+        '204': { description: 已退号 }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/registrations/{registrationId}/charge-items:
+    get:
+      tags: [Registration]
+      summary: 查询就诊收费明细
+      operationId: listChargeItems
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+        - name: state
+          in: query
+          schema: { $ref: '#/components/schemas/ChargeItemState' }
+      responses:
+        '200':
+          $ref: '#/components/responses/ListResponse'
+  /api/payments:
+    post:
+      tags: [Registration]
+      summary: 收费结算
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentRequest' }
+      responses:
+        '200':
+          description: 支付流水
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentEnvelope' }
+  /api/refunds:
+    post:
+      tags: [Registration]
+      summary: 退费
+      operationId: createRefund
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefundRequest' }
+      responses:
+        '200':
+          description: 退款流水
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentEnvelope' }
+  /api/outpatient/patients:
+    get:
+      tags: [Outpatient]
+      summary: 查询当前医生患者队列
+      operationId: listDoctorPatients
+      parameters:
+        - name: state
+          in: query
+          schema: { $ref: '#/components/schemas/VisitState' }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PageResponse'
+  /api/registrations/{registrationId}/medical-record:
+    put:
+      tags: [Outpatient]
+      summary: 创建或更新病历首页
+      operationId: saveMedicalRecord
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MedicalRecordRequest' }
+      responses:
+        '200':
+          description: 病历
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MedicalRecordEnvelope' }
+  /api/registrations/{registrationId}/medical-orders:
+    post:
+      tags: [Outpatient]
+      summary: 开立检查、检验或处置申请
+      operationId: createMedicalOrders
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              items: { $ref: '#/components/schemas/CreateMedicalOrderRequest' }
+      responses:
+        '200':
+          $ref: '#/components/responses/ListResponse'
+  /api/registrations/{registrationId}/prescriptions:
+    post:
+      tags: [Outpatient]
+      summary: 开立处方
+      operationId: createPrescriptions
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              items: { $ref: '#/components/schemas/CreatePrescriptionRequest' }
+      responses:
+        '200':
+          $ref: '#/components/responses/ListResponse'
+  /api/registrations/{registrationId}/complete:
+    post:
+      tags: [Outpatient]
+      summary: 完成本次看诊
+      operationId: completeConsultation
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      responses:
+        '204': { description: 看诊完成 }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/medical-orders:
+    get:
+      tags: [MedicalTech]
+      summary: 查询医技申请队列
+      operationId: searchMedicalOrders
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/MedicalOrderType' }
+        - name: state
+          in: query
+          schema: { $ref: '#/components/schemas/MedicalOrderState' }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PageResponse'
+  /api/medical-orders/{type}/{orderId}/accept:
+    post:
+      tags: [MedicalTech]
+      summary: 接收医技申请
+      operationId: acceptMedicalOrder
+      parameters:
+        - $ref: '#/components/parameters/MedicalOrderType'
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '204': { description: 已接收 }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/medical-orders/{type}/{orderId}/result:
+    post:
+      tags: [MedicalTech]
+      summary: 录入医技执行结果
+      operationId: reportMedicalOrderResult
+      parameters:
+        - $ref: '#/components/parameters/MedicalOrderType'
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MedicalOrderResultRequest' }
+      responses:
+        '204': { description: 结果已保存 }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/pharmacy/prescriptions:
+    get:
+      tags: [Pharmacy]
+      summary: 查询发药或退药队列
+      operationId: searchPharmacyPrescriptions
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: state
+          in: query
+          schema: { $ref: '#/components/schemas/PrescriptionState' }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PageResponse'
+  /api/pharmacy/prescriptions/{prescriptionId}/dispense:
+    post:
+      tags: [Pharmacy]
+      summary: 发药并扣减库存
+      operationId: dispensePrescription
+      parameters:
+        - $ref: '#/components/parameters/PrescriptionId'
+      responses:
+        '204': { description: 发药完成 }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/pharmacy/prescriptions/{prescriptionId}/return:
+    post:
+      tags: [Pharmacy]
+      summary: 退药并恢复库存
+      operationId: returnPrescription
+      parameters:
+        - $ref: '#/components/parameters/PrescriptionId'
+      responses:
+        '204': { description: 退药完成 }
+        '409': { $ref: '#/components/responses/Conflict' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Keyword:
+      name: keyword
+      in: query
+      schema: { type: string, maxLength: 64 }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Size:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    RegistrationId:
+      name: registrationId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    MedicalOrderType:
+      name: type
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/MedicalOrderType' }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    PrescriptionId:
+      name: prescriptionId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  responses:
+    Unauthorized:
+      description: 未登录或令牌无效
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Conflict:
+      description: 业务状态冲突
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ListResponse:
+      description: 列表响应
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+              - type: object
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+    PageResponse:
+      description: 分页响应
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/BaseResponse'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/PageData' }
+  schemas:
+    BaseResponse:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code: { type: string, examples: [OK] }
+        message: { type: string, examples: [success] }
+        timestamp: { type: string, format: date-time }
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { type: 'null' }
+    PageData:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items: { type: object, additionalProperties: true }
+        page: { type: integer }
+        size: { type: integer }
+        total: { type: integer, format: int64 }
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 64 }
+        password: { type: string, minLength: 8, maxLength: 128, format: password }
+    LoginResponse:
+      type: object
+      required: [accessToken, tokenType, expiresIn, user]
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, const: Bearer }
+        expiresIn: { type: integer, description: 有效秒数 }
+        user: { $ref: '#/components/schemas/UserProfile' }
+    LoginResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/LoginResponse' }
+    UserProfile:
+      type: object
+      required: [id, username, displayName, roles, permissions]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        displayName: { type: string }
+        employeeId: { type: [integer, 'null'], format: int64 }
+        roles: { type: array, items: { type: string } }
+        permissions: { type: array, items: { type: string } }
+    UserProfileEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/UserProfile' }
+    StringEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { type: string }
+    VisitState:
+      type: string
+      enum: [REGISTERED, IN_CONSULTATION, COMPLETED, CANCELLED]
+    MedicalOrderType:
+      type: string
+      enum: [CHECK, INSPECTION, DISPOSAL]
+    MedicalOrderState:
+      type: string
+      enum: [CREATED, PAID, ACCEPTED, EXECUTED, RESULT_REPORTED, REFUNDED, CANCELLED]
+    PrescriptionState:
+      type: string
+      enum: [CREATED, PAID, DISPENSED, RETURNED, REFUNDED, CANCELLED]
+    ChargeItemState:
+      type: string
+      enum: [UNPAID, PAID, REFUNDED, VOID]
+    DepartmentType:
+      type: string
+      enum: [OUTPATIENT, CHECK, INSPECTION, DISPOSAL, FINANCE, PHARMACY]
+    PaymentMethod:
+      type: string
+      enum: [CASH, BANK_CARD, WECHAT, ALIPAY, MEDICAL_INSURANCE]
+    CreateRegistrationRequest:
+      type: object
+      required: [caseNumber, realName, gender, visitDate, noon, departmentId, employeeId, registLevelId, settleCategoryId, registMethod]
+      properties:
+        caseNumber: { type: string, maxLength: 64 }
+        realName: { type: string, maxLength: 64 }
+        gender: { type: string, enum: [MALE, FEMALE, UNKNOWN] }
+        cardNumber: { type: string, maxLength: 32 }
+        birthday: { type: string, format: date }
+        age: { type: integer, minimum: 0 }
+        ageType: { type: string, enum: [YEAR, DAY] }
+        homeAddress: { type: string, maxLength: 255 }
+        visitDate: { type: string, format: date-time }
+        noon: { type: string, enum: [AM, PM] }
+        departmentId: { type: integer, format: int64 }
+        employeeId: { type: integer, format: int64 }
+        registLevelId: { type: integer, format: int64 }
+        settleCategoryId: { type: integer, format: int64 }
+        isBook: { type: boolean, default: false }
+        registMethod: { $ref: '#/components/schemas/PaymentMethod' }
+    Registration:
+      allOf:
+        - $ref: '#/components/schemas/CreateRegistrationRequest'
+        - type: object
+          required: [id, state, registMoney]
+          properties:
+            id: { type: integer, format: int64 }
+            state: { $ref: '#/components/schemas/VisitState' }
+            registMoney: { type: number, multipleOf: 0.01 }
+    RegistrationEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Registration' }
+    MedicalRecordRequest:
+      type: object
+      required: [chiefComplaint]
+      properties:
+        chiefComplaint: { type: string, maxLength: 500 }
+        presentIllness: { type: string }
+        presentTreatment: { type: string }
+        pastHistory: { type: string }
+        allergyHistory: { type: string }
+        physicalExamination: { type: string }
+        examinationProposal: { type: string }
+        precaution: { type: string }
+        diagnosis: { type: string }
+        treatmentPlan: { type: string }
+        diseaseIds:
+          type: array
+          uniqueItems: true
+          items: { type: integer, format: int64 }
+    MedicalRecordEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/MedicalRecordRequest'
+                - type: object
+                  properties:
+                    id: { type: integer, format: int64 }
+    CreateMedicalOrderRequest:
+      type: object
+      required: [type, medicalTechnologyId]
+      properties:
+        type: { $ref: '#/components/schemas/MedicalOrderType' }
+        medicalTechnologyId: { type: integer, format: int64 }
+        requestInfo: { type: string, maxLength: 1000 }
+        bodyPosition: { type: string, maxLength: 255 }
+        remark: { type: string, maxLength: 1000 }
+    MedicalOrderResultRequest:
+      type: object
+      required: [result]
+      properties:
+        result: { type: string, minLength: 1 }
+        remark: { type: string, maxLength: 1000 }
+    CreatePrescriptionRequest:
+      type: object
+      required: [drugId, drugUsage, drugNumber]
+      properties:
+        drugId: { type: integer, format: int64 }
+        drugUsage: { type: string, maxLength: 500 }
+        drugNumber: { type: integer, minimum: 1 }
+    PaymentRequest:
+      type: object
+      required: [registrationId, chargeItemIds, paymentMethod, idempotencyKey]
+      properties:
+        registrationId: { type: integer, format: int64 }
+        chargeItemIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: integer, format: int64 }
+        paymentMethod: { $ref: '#/components/schemas/PaymentMethod' }
+        idempotencyKey: { type: string, maxLength: 64 }
+    RefundRequest:
+      type: object
+      required: [originalTransactionId, chargeItemIds, reason, idempotencyKey]
+      properties:
+        originalTransactionId: { type: integer, format: int64 }
+        chargeItemIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: integer, format: int64 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        idempotencyKey: { type: string, maxLength: 64 }
+    Payment:
+      type: object
+      required: [id, transactionNo, transactionType, amount, status, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        transactionNo: { type: string }
+        transactionType: { type: string, enum: [PAYMENT, REFUND] }
+        amount: { type: number, multipleOf: 0.01 }
+        status: { type: string, enum: [SUCCESS, FAILED] }
+        createdAt: { type: string, format: date-time }
+    PaymentEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Payment' }

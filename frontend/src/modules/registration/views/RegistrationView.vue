@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { CirclePlus, Refresh, Search } from '@element-plus/icons-vue'
+import { CirclePlus, CreditCard, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
   cancelRegistration,
@@ -8,8 +8,12 @@ import {
   fetchEmployees,
   fetchRegistrationOptions,
   generateCaseNumber,
+  getChargeItems,
+  payChargeItems,
+  refundChargeItems,
   searchRegistrations,
   type CreateRegistrationRequest,
+  type ChargeItem,
   type DepartmentOption,
   type EmployeeOption,
   type Registration,
@@ -21,6 +25,9 @@ const loading = ref(false)
 const submitting = ref(false)
 const dialogOpen = ref(false)
 const detailOpen = ref(false)
+const billingOpen = ref(false)
+const billingLoading = ref(false)
+const billingSubmitting = ref(false)
 const formRef = ref<FormInstance>()
 const rows = ref<Registration[]>([])
 const selected = ref<Registration | null>(null)
@@ -30,6 +37,9 @@ const departments = ref<DepartmentOption[]>([])
 const employees = ref<EmployeeOption[]>([])
 const levels = ref<RegistrationLevelOption[]>([])
 const settlementCategories = ref<SettlementCategoryOption[]>([])
+const chargeItems = ref<ChargeItem[]>([])
+const selectedCharges = ref<ChargeItem[]>([])
+const paymentMethod = ref('CASH')
 
 type RegistrationForm = Omit<CreateRegistrationRequest,
   'departmentId' | 'employeeId' | 'registrationLevelId' | 'settlementCategoryId'> & {
@@ -70,6 +80,13 @@ const rules: FormRules<RegistrationForm> = {
 
 const currentDoctor = computed(() => employees.value.find((item) => item.id === form.employeeId))
 const registrationFee = computed(() => currentDoctor.value?.registrationFee ?? 0)
+const selectedChargeTotal = computed(() => selectedCharges.value.reduce((sum, item) => sum + Number(item.totalAmount), 0))
+const canPay = computed(() => selectedCharges.value.length > 0 && selectedCharges.value.every((item) => item.state === 'UNPAID'))
+const canRefund = computed(() => {
+  if (!selectedCharges.value.length || !selectedCharges.value.every((item) => item.state === 'PAID')) return false
+  const transactionId = selectedCharges.value[0]?.originalTransactionId
+  return Boolean(transactionId && selectedCharges.value.every((item) => item.originalTransactionId === transactionId))
+})
 
 function tomorrow() {
   const date = new Date()
@@ -167,6 +184,78 @@ function showDetail(row: Registration) {
   detailOpen.value = true
 }
 
+async function openBilling(row: Registration) {
+  selected.value = row
+  selectedCharges.value = []
+  paymentMethod.value = 'CASH'
+  billingOpen.value = true
+  await loadChargeItems()
+}
+
+async function loadChargeItems() {
+  if (!selected.value) return
+  billingLoading.value = true
+  try {
+    chargeItems.value = await getChargeItems(selected.value.id)
+    selectedCharges.value = []
+  } catch (error) {
+    ElMessage.error(apiMessage(error))
+  } finally {
+    billingLoading.value = false
+  }
+}
+
+function chargeSelectionChanged(items: ChargeItem[]) {
+  selectedCharges.value = items
+}
+
+function chargeSelectable(item: ChargeItem) {
+  return item.state === 'UNPAID' || item.state === 'PAID'
+}
+
+function chargeStateLabel(state: ChargeItem['state']) {
+  return { UNPAID: '待缴费', PAID: '已缴费', REFUNDED: '已退费', VOID: '已作废' }[state]
+}
+
+async function paySelected() {
+  if (!selected.value || !canPay.value) return
+  await ElMessageBox.confirm(`确认收取 ¥${selectedChargeTotal.value.toFixed(2)}？`, '收费确认', { type: 'warning' })
+  billingSubmitting.value = true
+  try {
+    await payChargeItems(selected.value.id, selectedCharges.value.map((item) => item.id), paymentMethod.value)
+    ElMessage.success('收费成功')
+    await loadChargeItems()
+  } catch (error) {
+    ElMessage.error(apiMessage(error))
+  } finally {
+    billingSubmitting.value = false
+  }
+}
+
+async function refundSelected() {
+  if (!canRefund.value) return
+  const result = await ElMessageBox.prompt('请输入退费原因', '退费确认', {
+    inputPattern: /\S+/,
+    inputErrorMessage: '请输入退费原因',
+    confirmButtonText: '确认退费',
+    cancelButtonText: '取消',
+  })
+  billingSubmitting.value = true
+  try {
+    await refundChargeItems(
+      selectedCharges.value[0]!.originalTransactionId!,
+      selectedCharges.value.map((item) => item.id),
+      result.value,
+    )
+    ElMessage.success('退费成功')
+    await loadChargeItems()
+  } catch (error) {
+    ElMessage.error(apiMessage(error))
+  } finally {
+    billingSubmitting.value = false
+  }
+}
+
 async function cancel(row: Registration) {
   await ElMessageBox.confirm(`确认退掉 ${row.realName} 的本次挂号？`, '退号确认', { type: 'warning' })
   try {
@@ -229,9 +318,10 @@ onMounted(async () => {
         <el-table-column prop="registrationLevelName" label="号别" width="90" />
         <el-table-column label="费用" width="90"><template #default="{ row }">¥{{ Number(row.registrationFee).toFixed(2) }}</template></el-table-column>
         <el-table-column label="状态" width="90"><template #default="{ row }"><el-tag :type="stateType(row.state)" effect="plain">{{ stateLabel(row.state) }}</el-tag></template></el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="190" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="showDetail(row)">详情</el-button>
+            <el-button v-if="row.state !== 'CANCELLED'" link type="primary" @click="openBilling(row)">收费</el-button>
             <el-button v-if="row.state === 'REGISTERED'" link type="danger" @click="cancel(row)">退号</el-button>
           </template>
         </el-table-column>
@@ -277,6 +367,31 @@ onMounted(async () => {
         <el-descriptions-item label="状态"><el-tag :type="stateType(selected.state)" effect="plain">{{ stateLabel(selected.state) }}</el-tag></el-descriptions-item>
       </el-descriptions>
     </el-drawer>
+
+    <el-drawer v-model="billingOpen" title="收费结算" size="min(720px, 96vw)">
+      <div v-if="selected" class="billing-patient">
+        <div><strong>{{ selected.realName }}</strong><span>{{ selected.caseNumber }}</span></div>
+        <el-button :icon="Refresh" @click="loadChargeItems">刷新</el-button>
+      </div>
+      <el-table v-loading="billingLoading" :data="chargeItems" row-key="id" @selection-change="chargeSelectionChanged">
+        <el-table-column type="selection" width="44" :selectable="chargeSelectable" />
+        <el-table-column prop="itemName" label="收费项目" min-width="110" show-overflow-tooltip />
+        <el-table-column label="单价 / 数量" width="118" class-name="billing-unit-column" label-class-name="billing-unit-column"><template #default="{ row }">¥{{ Number(row.unitPrice).toFixed(2) }} × {{ row.quantity }}</template></el-table-column>
+        <el-table-column label="金额" width="76"><template #default="{ row }">¥{{ Number(row.totalAmount).toFixed(2) }}</template></el-table-column>
+        <el-table-column label="状态" width="74"><template #default="{ row }"><el-tag effect="plain" size="small">{{ chargeStateLabel(row.state) }}</el-tag></template></el-table-column>
+        <template #empty><el-empty description="暂无收费项目" :image-size="72" /></template>
+      </el-table>
+      <div class="billing-settlement">
+        <div class="billing-total"><span>已选 {{ selectedCharges.length }} 项</span><strong>¥{{ selectedChargeTotal.toFixed(2) }}</strong></div>
+        <el-select v-model="paymentMethod" class="billing-method" :disabled="!canPay">
+          <el-option label="现金" value="CASH" /><el-option label="银行卡" value="BANK_CARD" />
+          <el-option label="微信" value="WECHAT" /><el-option label="支付宝" value="ALIPAY" />
+          <el-option label="医保" value="MEDICAL_INSURANCE" />
+        </el-select>
+        <el-button type="danger" :disabled="!canRefund" :loading="billingSubmitting" @click="refundSelected">退费</el-button>
+        <el-button type="primary" :icon="CreditCard" :disabled="!canPay" :loading="billingSubmitting" @click="paySelected">确认收费</el-button>
+      </div>
+    </el-drawer>
   </section>
 </template>
 
@@ -292,6 +407,13 @@ onMounted(async () => {
 .registration-summary { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: #f3f7f6; border-left: 3px solid var(--primary); }
 .registration-summary span { color: var(--muted); font-size: 13px; }
 .registration-summary strong { font-size: 22px; color: var(--primary-dark); }
+.billing-patient { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.billing-patient div { display: flex; flex-direction: column; gap: 4px; }
+.billing-patient span, .billing-total span { color: var(--muted); font-size: 12px; }
+.billing-settlement { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.billing-total { display: flex; flex-direction: column; margin-right: auto; }
+.billing-total strong { font-size: 22px; color: var(--primary-dark); }
+.billing-method { width: 128px; }
 @media (max-width: 700px) {
   .registration-toolbar { align-items: stretch; flex-wrap: wrap; }
   .registration-search { width: 100%; }
@@ -299,5 +421,9 @@ onMounted(async () => {
   .registration-form-grid { grid-template-columns: 1fr; }
   .form-span-two { grid-column: auto; }
   .registration-pagination { overflow-x: auto; justify-content: flex-start; }
+  .billing-settlement { align-items: stretch; }
+  .billing-total { width: 100%; }
+  .billing-method, .billing-settlement > .el-button { width: 100%; margin-left: 0; }
+  .registration-page :deep(.billing-unit-column) { display: none; }
 }
 </style>

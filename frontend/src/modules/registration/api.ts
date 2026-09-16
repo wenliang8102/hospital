@@ -85,6 +85,36 @@ export interface CreateRegistrationRequest {
   registrationMethod: string
 }
 
+export type ChargeItemState = 'UNPAID' | 'PAID' | 'REFUNDED' | 'VOID'
+
+export interface ChargeItem {
+  id: number
+  registrationId: number
+  itemType: string
+  sourceId: number
+  itemName: string
+  unitPrice: number
+  quantity: number
+  totalAmount: number
+  state: ChargeItemState
+  paidAt: string | null
+  createdAt: string
+  originalTransactionId: number | null
+}
+
+export interface Payment {
+  id: number
+  transactionNo: string
+  registrationId: number
+  transactionType: 'PAYMENT' | 'REFUND'
+  paymentMethod: string
+  amount: number
+  status: 'SUCCESS' | 'FAILED'
+  originalTransactionId: number | null
+  reason: string | null
+  createdAt: string
+}
+
 export async function fetchRegistrationOptions() {
   const [departments, levels, settlementCategories] = await Promise.all([
     http.get<ApiResponse<DepartmentOption[]>>('/master-data/departments'),
@@ -122,4 +152,33 @@ export async function createRegistration(request: CreateRegistrationRequest) {
 
 export async function cancelRegistration(id: number) {
   await http.post(`/registrations/${id}/cancel`)
+}
+
+export async function getChargeItems(registrationId: number) {
+  const response = await http.get<ApiResponse<ChargeItem[]>>(`/registrations/${registrationId}/charge-items`)
+  return response.data.data
+}
+
+export async function payChargeItems(
+  registrationId: number, chargeItemIds: number[], paymentMethod: string,
+) {
+  const response = await http.post<ApiResponse<Payment>>('/payments', {
+    registrationId,
+    chargeItemIds,
+    paymentMethod,
+    idempotencyKey: crypto.randomUUID(),
+  })
+  return response.data.data
+}
+
+export async function refundChargeItems(
+  originalTransactionId: number, chargeItemIds: number[], reason: string,
+) {
+  const response = await http.post<ApiResponse<Payment>>('/refunds', {
+    originalTransactionId,
+    chargeItemIds,
+    reason,
+    idempotencyKey: crypto.randomUUID(),
+  })
+  return response.data.data
 }

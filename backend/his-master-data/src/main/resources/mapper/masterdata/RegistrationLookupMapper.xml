@@ -48,4 +48,31 @@
         ORDER BY disease_code, id
         LIMIT #{limit}
     </select>
+
+    <select id="findMedicalTechnologies" resultType="com.hospital.his.masterdata.persistence.model.MedicalTechnologyOption">
+        SELECT id, tech_code AS code, tech_name AS name, tech_format AS format,
+               tech_price AS price, tech_type AS type, department_id
+        FROM medical_technology
+        WHERE active = TRUE
+        <if test="type != null and type != ''">AND tech_type = #{type}</if>
+        <if test="keyword != null and keyword != ''">
+            AND (tech_code LIKE CONCAT('%', #{keyword}, '%') OR tech_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY tech_code, id
+        LIMIT #{limit}
+    </select>
+
+    <select id="findDrugs" resultType="com.hospital.his.masterdata.persistence.model.DrugOption">
+        SELECT id, drug_code AS code, drug_name AS name, drug_format AS format, drug_unit AS unit,
+               drug_dosage AS dosage, drug_type AS type, drug_price AS price, manufacturer
+        FROM drug_info
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (drug_code LIKE CONCAT('%', #{keyword}, '%')
+                OR drug_name LIKE CONCAT('%', #{keyword}, '%')
+                OR mnemonic_code LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY drug_code, id
+        LIMIT #{limit}
+    </select>
 </mapper>

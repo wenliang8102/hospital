@@ -28,6 +28,8 @@ const basePatient = {
 
 async function mockOutpatientApi(page: Page) {
   let state = 'REGISTERED'
+  let orders: unknown[] = []
+  let prescriptions: unknown[] = []
   await page.addInitScript(() => {
     localStorage.setItem('hospital-his.auth', JSON.stringify({
       token: 'doctor-test-token',
@@ -50,9 +52,23 @@ async function mockOutpatientApi(page: Page) {
       data = { items: [{ ...basePatient, state }], page: 1, size: 20, total: 1 }
     } else if (url.pathname.endsWith('/master-data/diseases')) {
       data = [{ id: 1, code: 'J00', name: '急性鼻咽炎', icd: 'J00' }]
+    } else if (url.pathname.endsWith('/master-data/medical-technologies')) {
+      data = [{ id: 1, code: 'XRAY', name: '胸部正位片', format: null, price: 120, type: 'CHECK', departmentId: 1 }]
+    } else if (url.pathname.endsWith('/master-data/drugs')) {
+      data = [{ id: 1, code: 'AMOX', name: '阿莫西林胶囊', format: '0.25g*24粒', unit: '盒', price: 10 }]
     } else if (url.pathname.endsWith('/accept')) {
       state = 'IN_CONSULTATION'
       data = { ...basePatient, state }
+    } else if (url.pathname.endsWith('/medical-orders')) {
+      if (request.method() === 'POST') {
+        orders = [{ id: 1, registrationId: 11, type: 'CHECK', medicalTechnologyId: 1, itemName: '胸部正位片', price: 120, state: 'CREATED', createdAt: '2026-09-16T12:00:00' }]
+      }
+      data = orders
+    } else if (url.pathname.endsWith('/prescriptions')) {
+      if (request.method() === 'POST') {
+        prescriptions = [{ id: 1, registrationId: 11, drugId: 1, drugName: '阿莫西林胶囊', drugFormat: '0.25g*24粒', drugUnit: '盒', unitPrice: 10, drugUsage: '口服，每日三次', drugNumber: 2, totalAmount: 20, state: 'CREATED', createdAt: '2026-09-16T12:00:00' }]
+      }
+      data = prescriptions
     } else if (url.pathname.endsWith('/medical-record') && request.method() === 'PUT') {
       const payload = request.postDataJSON()
       data = {
@@ -82,6 +98,21 @@ for (const viewport of [
     await expect(page.getByRole('button', { name: '接诊' })).toBeVisible()
     await page.getByRole('button', { name: '接诊' }).click()
     await expect(page.getByRole('button', { name: '保存病历' })).toBeVisible()
+
+    await page.getByRole('button', { name: '开医技' }).click()
+    const orderDialog = page.getByRole('dialog', { name: '开立医技申请' })
+    await orderDialog.locator('.el-select__wrapper').click()
+    await page.getByRole('option', { name: /胸部正位片/ }).click()
+    await orderDialog.getByRole('button', { name: '确认开立' }).click()
+    await expect(page.getByText('胸部正位片').first()).toBeVisible()
+
+    await page.getByRole('button', { name: '开处方' }).click()
+    const prescriptionDialog = page.getByRole('dialog', { name: '开立处方' })
+    await prescriptionDialog.locator('.el-select__wrapper').click()
+    await page.getByRole('option', { name: /阿莫西林胶囊/ }).click()
+    await prescriptionDialog.getByLabel('用法').fill('口服，每日三次')
+    await prescriptionDialog.getByRole('button', { name: '确认开立' }).click()
+    await expect(page.getByText('阿莫西林胶囊').first()).toBeVisible()
 
     await page.getByLabel('主诉').fill('鼻塞、流涕一天')
     await page.locator('.el-form-item').filter({ hasText: '最终诊断' }).locator('.el-select__wrapper').click()

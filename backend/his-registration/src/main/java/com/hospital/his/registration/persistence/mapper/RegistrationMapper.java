@@ -1,6 +1,7 @@
 package com.hospital.his.registration.persistence.mapper;
 
 import com.hospital.his.registration.persistence.model.RegistrationDraft;
+import com.hospital.his.registration.persistence.model.ChargeItemDraft;
 import com.hospital.his.registration.persistence.model.RegistrationReferenceRow;
 import com.hospital.his.registration.persistence.model.RegistrationRow;
 import org.apache.ibatis.annotations.Mapper;
@@ -31,6 +32,8 @@ public interface RegistrationMapper {
             @Param("registrationId") Long registrationId,
             @Param("itemName") String itemName,
             @Param("amount") java.math.BigDecimal amount);
+
+    int insertChargeItem(ChargeItemDraft draft);
 
     List<RegistrationRow> findByCaseNumber(@Param("caseNumber") String caseNumber, @Param("limit") int limit);
 

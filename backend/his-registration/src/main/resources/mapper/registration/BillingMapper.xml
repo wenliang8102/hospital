@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.registration.persistence.mapper.BillingMapper">
+    <sql id="chargeColumns">
+        ci.id, ci.register_id AS registration_id, ci.item_type, ci.source_id, ci.item_name,
+        ci.unit_price, ci.quantity, ci.total_amount, ci.state, ci.paid_at, ci.created_at,
+        (SELECT pti.transaction_id
+         FROM payment_transaction_item pti
+         JOIN payment_transaction pt ON pt.id = pti.transaction_id
+         WHERE pti.charge_item_id = ci.id AND pt.transaction_type = 'PAYMENT' AND pt.status = 'SUCCESS'
+         ORDER BY pt.id LIMIT 1) AS original_transaction_id
+    </sql>
+
+    <select id="findChargeItems" resultType="com.hospital.his.registration.persistence.model.ChargeItemRow">
+        SELECT <include refid="chargeColumns"/> FROM charge_item ci
+        WHERE ci.register_id = #{registrationId}
+        <if test="state != null and state != ''">AND ci.state = #{state}</if>
+        ORDER BY ci.created_at, ci.id
+    </select>
+
+    <select id="lockChargeItems" resultType="com.hospital.his.registration.persistence.model.ChargeItemRow">
+        SELECT <include refid="chargeColumns"/> FROM charge_item ci WHERE ci.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY ci.id FOR UPDATE
+    </select>
+
+    <select id="findTransactionByNo" resultType="com.hospital.his.registration.persistence.model.PaymentTransactionRow">
+        SELECT id, transaction_no, register_id AS registration_id, transaction_type, payment_method,
+               amount, status, operator_user_id, original_transaction_id, reason, created_at
+        FROM payment_transaction WHERE transaction_no = #{transactionNo}
+    </select>
+
+    <select id="findTransactionById" resultType="com.hospital.his.registration.persistence.model.PaymentTransactionRow">
+        SELECT id, transaction_no, register_id AS registration_id, transaction_type, payment_method,
+               amount, status, operator_user_id, original_transaction_id, reason, created_at
+        FROM payment_transaction WHERE id = #{id}
+    </select>
+
+    <insert id="insertTransaction" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO payment_transaction (
+            transaction_no, register_id, transaction_type, payment_method, amount,
+            status, operator_user_id, original_transaction_id, reason
+        ) VALUES (
+            #{transactionNo}, #{registrationId}, #{transactionType}, #{paymentMethod}, #{amount},
+            'SUCCESS', #{operatorUserId}, #{originalTransactionId}, #{reason}
+        )
+    </insert>
+
+    <insert id="insertTransactionItems">
+        INSERT INTO payment_transaction_item (transaction_id, charge_item_id, amount) VALUES
+        <foreach collection="items" item="item" separator=",">
+            (#{transactionId}, #{item.id}, #{item.totalAmount})
+        </foreach>
+    </insert>
+
+    <select id="countTransactionItems" resultType="long">
+        SELECT COUNT(*) FROM payment_transaction_item
+        WHERE transaction_id = #{transactionId} AND charge_item_id IN
+        <foreach collection="chargeItemIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <select id="countAllTransactionItems" resultType="long">
+        SELECT COUNT(*) FROM payment_transaction_item WHERE transaction_id = #{transactionId}
+    </select>
+
+    <update id="markPaid">
+        UPDATE charge_item SET state = 'PAID', paid_at = CURRENT_TIMESTAMP
+        WHERE state = 'UNPAID' AND id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </update>
+
+    <update id="markRefunded">
+        UPDATE charge_item SET state = 'REFUNDED'
+        WHERE state = 'PAID' AND id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </update>
+
+    <update id="payCheck">UPDATE check_request SET state = 'PAID' WHERE id = #{id} AND state = 'CREATED'</update>
+    <update id="payInspection">UPDATE inspection_request SET state = 'PAID' WHERE id = #{id} AND state = 'CREATED'</update>
+    <update id="payDisposal">UPDATE disposal_request SET state = 'PAID' WHERE id = #{id} AND state = 'CREATED'</update>
+    <update id="payPrescription">UPDATE prescription SET state = 'PAID' WHERE id = #{id} AND state = 'CREATED'</update>
+    <update id="refundCheck">UPDATE check_request SET state = 'REFUNDED' WHERE id = #{id} AND state = 'PAID'</update>
+    <update id="refundInspection">UPDATE inspection_request SET state = 'REFUNDED' WHERE id = #{id} AND state = 'PAID'</update>
+    <update id="refundDisposal">UPDATE disposal_request SET state = 'REFUNDED' WHERE id = #{id} AND state = 'PAID'</update>
+    <update id="refundPrescription">UPDATE prescription SET state = 'REFUNDED' WHERE id = #{id} AND state = 'PAID'</update>
+</mapper>

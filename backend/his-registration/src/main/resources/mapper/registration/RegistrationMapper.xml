@@ -74,6 +74,15 @@
         )
     </insert>
 
+    <insert id="insertChargeItem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO charge_item (
+            register_id, item_type, source_id, item_name, unit_price, quantity, total_amount, state
+        ) VALUES (
+            #{registrationId}, #{itemType}, #{sourceId}, #{itemName}, #{unitPrice},
+            #{quantity}, #{totalAmount}, 'UNPAID'
+        )
+    </insert>
+
     <select id="findByCaseNumber" resultType="com.hospital.his.registration.persistence.model.RegistrationRow">
         SELECT <include refid="summaryColumns"/> <include refid="registrationFrom"/>
         WHERE r.case_number = #{caseNumber}

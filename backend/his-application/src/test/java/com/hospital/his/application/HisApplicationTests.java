@@ -292,6 +292,121 @@ class HisApplicationTests {
                 .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
 
+    @Test
+    void createsClinicalOrdersAndCoordinatesPaymentAndPartialRefund() throws Exception {
+        seedRegistrationReferences();
+        jdbcTemplate.update("""
+                INSERT INTO medical_technology
+                    (id, tech_code, tech_name, tech_price, tech_type, department_id)
+                VALUES (1, 'XRAY', '胸部正位片', 120.00, 'CHECK', 1),
+                       (2, 'DRESSING', '换药', 30.00, 'DISPOSAL', 1)
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO drug_info
+                    (id, drug_code, drug_name, drug_format, drug_unit, drug_price, mnemonic_code)
+                VALUES (1, 'AMOX', '阿莫西林胶囊', '0.25g*24粒', '盒', 10.00, 'AMXL')
+                """);
+
+        String registrationResponse = mockMvc.perform(post("/api/registrations")
+                        .with(registrationJwt())
+                        .contentType("application/json")
+                        .content(registrationRequest("billing-001", 1, LocalDate.now() + "T09:00:00")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        long registrationId = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(registrationResponse).path("data").path("id").asLong();
+        mockMvc.perform(post("/api/registrations/{id}/accept", registrationId).with(outpatientJwt(1)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/master-data/medical-technologies")
+                        .param("type", "CHECK").with(outpatientJwt(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].name").value("胸部正位片"));
+        mockMvc.perform(get("/api/master-data/drugs").param("keyword", "AMXL").with(outpatientJwt(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].name").value("阿莫西林胶囊"));
+
+        mockMvc.perform(post("/api/registrations/{id}/medical-orders", registrationId)
+                        .with(outpatientJwt(1))
+                        .contentType("application/json")
+                        .content("""
+                                [{"type":"CHECK","medicalTechnologyId":1,
+                                  "requestInfo":"咳嗽三天","bodyPosition":"胸部"}]
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].state").value("CREATED"));
+        mockMvc.perform(post("/api/registrations/{id}/prescriptions", registrationId)
+                        .with(outpatientJwt(1))
+                        .contentType("application/json")
+                        .content("""
+                                [{"drugId":1,"drugUsage":"口服，每日三次","drugNumber":2}]
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].totalAmount").value(20.00));
+
+        mockMvc.perform(get("/api/registrations/{id}/charge-items", registrationId).with(billingJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(3));
+        long checkChargeId = jdbcTemplate.queryForObject(
+                "SELECT id FROM charge_item WHERE register_id = ? AND item_type = 'CHECK'",
+                Long.class, registrationId);
+        long prescriptionChargeId = jdbcTemplate.queryForObject(
+                "SELECT id FROM charge_item WHERE register_id = ? AND item_type = 'PRESCRIPTION'",
+                Long.class, registrationId);
+
+        String paymentBody = """
+                {"registrationId":%d,"chargeItemIds":[%d,%d],
+                 "paymentMethod":"WECHAT","idempotencyKey":"payment-001"}
+                """.formatted(registrationId, checkChargeId, prescriptionChargeId);
+        String paymentResponse = mockMvc.perform(post("/api/payments")
+                        .with(billingJwt()).contentType("application/json").content(paymentBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.amount").value(140.00))
+                .andReturn().getResponse().getContentAsString();
+        long paymentId = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(paymentResponse).path("data").path("id").asLong();
+        mockMvc.perform(post("/api/payments")
+                        .with(billingJwt()).contentType("application/json").content(paymentBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(paymentId));
+        String conflictingPaymentBody = """
+                {"registrationId":%d,"chargeItemIds":[%d],
+                 "paymentMethod":"WECHAT","idempotencyKey":"payment-001"}
+                """.formatted(registrationId, checkChargeId);
+        mockMvc.perform(post("/api/payments")
+                        .with(billingJwt()).contentType("application/json").content(conflictingPaymentBody))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_RESOURCE"));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT state FROM check_request WHERE register_id = ?", String.class, registrationId))
+                .isEqualTo("PAID");
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT state FROM prescription WHERE register_id = ?", String.class, registrationId))
+                .isEqualTo("PAID");
+
+        String refundBody = """
+                {"originalTransactionId":%d,"chargeItemIds":[%d],
+                 "reason":"患者要求退药","idempotencyKey":"refund-001"}
+                """.formatted(paymentId, prescriptionChargeId);
+        String refundResponse = mockMvc.perform(post("/api/refunds")
+                        .with(billingJwt()).contentType("application/json").content(refundBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.amount").value(20.00))
+                .andExpect(jsonPath("$.data.reason").value("患者要求退药"))
+                .andReturn().getResponse().getContentAsString();
+        long refundId = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(refundResponse).path("data").path("id").asLong();
+        mockMvc.perform(post("/api/refunds")
+                        .with(billingJwt()).contentType("application/json").content(refundBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(refundId));
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT state FROM prescription WHERE register_id = ?", String.class, registrationId))
+                .isEqualTo("REFUNDED");
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM payment_transaction", Long.class)).isEqualTo(2);
+    }
+
     private JwtRequestPostProcessor registrationJwt() {
         return jwt().authorities(new SimpleGrantedAuthority("registration:write"));
     }
@@ -300,6 +415,12 @@ class HisApplicationTests {
         return jwt()
                 .jwt(builder -> builder.claim("employeeId", employeeId))
                 .authorities(new SimpleGrantedAuthority("outpatient:write"));
+    }
+
+    private JwtRequestPostProcessor billingJwt() {
+        return jwt()
+                .jwt(builder -> builder.claim("uid", 1L))
+                .authorities(new SimpleGrantedAuthority("registration:write"));
     }
 
     private void seedRegistrationReferences() {

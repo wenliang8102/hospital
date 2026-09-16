@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.outpatient.persistence.mapper.ClinicalOrderMapper">
+    <select id="findMedicalTechnology" resultType="com.hospital.his.outpatient.persistence.model.MedicalTechnologyReference">
+        SELECT id, tech_name AS name, tech_type AS type, tech_price AS price
+        FROM medical_technology WHERE id = #{id} AND active = TRUE
+    </select>
+
+    <select id="findDrug" resultType="com.hospital.his.outpatient.persistence.model.DrugReference">
+        SELECT id, drug_name AS name, drug_format AS format, drug_unit AS unit, drug_price AS price
+        FROM drug_info WHERE id = #{id} AND active = TRUE
+    </select>
+
+    <insert id="insertCheck" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO check_request (register_id, medical_technology_id, request_info, body_position, remark)
+        VALUES (#{registrationId}, #{medicalTechnologyId}, #{requestInfo}, #{bodyPosition}, #{remark})
+    </insert>
+
+    <insert id="insertInspection" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO inspection_request (register_id, medical_technology_id, request_info, body_position, remark)
+        VALUES (#{registrationId}, #{medicalTechnologyId}, #{requestInfo}, #{bodyPosition}, #{remark})
+    </insert>
+
+    <insert id="insertDisposal" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO disposal_request (register_id, medical_technology_id, request_info, body_position, remark)
+        VALUES (#{registrationId}, #{medicalTechnologyId}, #{requestInfo}, #{bodyPosition}, #{remark})
+    </insert>
+
+    <insert id="insertPrescription" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO prescription (register_id, drug_id, drug_usage, drug_number)
+        VALUES (#{registrationId}, #{drugId}, #{drugUsage}, #{drugNumber})
+    </insert>
+
+    <select id="findMedicalOrders" resultType="com.hospital.his.outpatient.persistence.model.MedicalOrderRow">
+        SELECT request.id, request.register_id AS registration_id, request.type,
+               request.medical_technology_id, mt.tech_name AS item_name, mt.tech_price AS price,
+               request.request_info, request.body_position, request.remark, request.state, request.created_at
+        FROM (
+            SELECT id, register_id, 'CHECK' AS type, medical_technology_id, request_info,
+                   body_position, remark, state, created_at FROM check_request WHERE register_id = #{registrationId}
+            UNION ALL
+            SELECT id, register_id, 'INSPECTION' AS type, medical_technology_id, request_info,
+                   body_position, remark, state, created_at FROM inspection_request WHERE register_id = #{registrationId}
+            UNION ALL
+            SELECT id, register_id, 'DISPOSAL' AS type, medical_technology_id, request_info,
+                   body_position, remark, state, created_at FROM disposal_request WHERE register_id = #{registrationId}
+        ) request
+        JOIN medical_technology mt ON mt.id = request.medical_technology_id
+        ORDER BY request.created_at, request.type, request.id
+    </select>
+
+    <select id="findPrescriptions" resultType="com.hospital.his.outpatient.persistence.model.PrescriptionRow">
+        SELECT p.id, p.register_id AS registration_id, p.drug_id, d.drug_name, d.drug_format,
+               d.drug_unit, d.drug_price AS unit_price, p.drug_usage, p.drug_number,
+               d.drug_price * p.drug_number AS total_amount, p.state, p.created_at
+        FROM prescription p JOIN drug_info d ON d.id = p.drug_id
+        WHERE p.register_id = #{registrationId}
+        ORDER BY p.created_at, p.id
+    </select>
+
+    <update id="cancelCheck">
+        UPDATE check_request SET state = 'CANCELLED'
+        WHERE id = #{id} AND register_id = #{registrationId} AND state = 'CREATED'
+    </update>
+    <update id="cancelInspection">
+        UPDATE inspection_request SET state = 'CANCELLED'
+        WHERE id = #{id} AND register_id = #{registrationId} AND state = 'CREATED'
+    </update>
+    <update id="cancelDisposal">
+        UPDATE disposal_request SET state = 'CANCELLED'
+        WHERE id = #{id} AND register_id = #{registrationId} AND state = 'CREATED'
+    </update>
+    <update id="cancelPrescription">
+        UPDATE prescription SET state = 'CANCELLED'
+        WHERE id = #{id} AND register_id = #{registrationId} AND state = 'CREATED'
+    </update>
+    <update id="voidCharge">
+        UPDATE charge_item SET state = 'VOID'
+        WHERE item_type = #{itemType} AND source_id = #{sourceId} AND state = 'UNPAID'
+    </update>
+</mapper>

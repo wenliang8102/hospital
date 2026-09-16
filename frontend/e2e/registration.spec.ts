@@ -8,6 +8,7 @@ const envelope = (data: unknown) => ({
 })
 
 async function mockRegistrationApi(page: Page) {
+  let chargeState = 'UNPAID'
   await page.addInitScript(() => {
     localStorage.setItem('hospital-his.auth', JSON.stringify({
       token: 'visual-test-token',
@@ -35,8 +36,13 @@ async function mockRegistrationApi(page: Page) {
       data = [{ id: 1, name: '李医生', departmentId: 1, registrationLevelId: 1, registrationLevelName: '普通号', registrationFee: 8 }]
     } else if (url.pathname.endsWith('/registration/case-numbers')) {
       data = 'H20260916A1B2C3D4'
+    } else if (url.pathname.includes('/charge-items')) {
+      data = [{ id: 1, registrationId: 1, itemType: 'REGISTRATION', sourceId: 1, itemName: '普通号挂号费', unitPrice: 8, quantity: 1, totalAmount: 8, state: chargeState, paidAt: null, createdAt: '2026-09-16T08:00:00', originalTransactionId: null }]
+    } else if (url.pathname.endsWith('/payments')) {
+      chargeState = 'PAID'
+      data = { id: 1, transactionNo: 'payment-001', registrationId: 1, transactionType: 'PAYMENT', paymentMethod: 'CASH', amount: 8, status: 'SUCCESS', originalTransactionId: null, reason: null, createdAt: '2026-09-16T08:01:00' }
     } else if (url.pathname.endsWith('/registrations')) {
-      data = { items: [], page: 1, size: 20, total: 0 }
+      data = { items: [{ id: 1, requestId: 'request-1', caseNumber: 'H20260916A1B2C3D4', realName: '张三', gender: 'MALE', cardNumber: null, birthday: null, age: 36, ageType: 'YEAR', homeAddress: null, visitDate: '2026-09-17T08:00:00', noon: 'AM', departmentId: 1, departmentName: '内科', employeeId: 1, employeeName: '李医生', registrationLevelId: 1, registrationLevelName: '普通号', settlementCategoryId: 1, settlementCategoryName: '自费', booked: false, registrationMethod: 'CASH', state: 'REGISTERED', registrationFee: 8, createdAt: '2026-09-16T08:00:00' }], page: 1, size: 20, total: 1 }
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(envelope(data)) })
   })
@@ -52,8 +58,19 @@ for (const viewport of [
     await page.goto('/registration')
 
     await expect(page.getByRole('heading', { name: '挂号工作台' })).toBeVisible()
-    await expect(page.getByText('暂无挂号记录')).toBeVisible()
+    await expect(page.getByText('张三')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+    await page.getByRole('button', { name: '收费', exact: true }).click()
+    const billingDrawer = page.getByRole('dialog', { name: '收费结算' })
+    await expect(billingDrawer).toBeVisible()
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: testInfo.outputPath(`billing-${viewport.name}.png`), fullPage: true })
+    await billingDrawer.locator('.el-table__body-wrapper .el-checkbox').click()
+    await billingDrawer.getByRole('button', { name: '确认收费' }).click()
+    await page.locator('.el-message-box__btns .el-button--primary').click()
+    await expect(page.getByText('收费成功')).toBeVisible()
+    await page.keyboard.press('Escape')
 
     await page.getByRole('button', { name: '新建挂号' }).click()
     await expect(page.getByRole('dialog', { name: '新建挂号' })).toBeVisible()

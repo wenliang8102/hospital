@@ -4,9 +4,11 @@ import com.hospital.his.common.api.ApiResponse;
 import com.hospital.his.masterdata.persistence.mapper.RegistrationLookupMapper;
 import com.hospital.his.masterdata.persistence.model.DepartmentOption;
 import com.hospital.his.masterdata.persistence.model.DiseaseOption;
+import com.hospital.his.masterdata.persistence.model.DrugOption;
 import com.hospital.his.masterdata.persistence.model.EmployeeOption;
 import com.hospital.his.masterdata.persistence.model.RegistrationLevelOption;
 import com.hospital.his.masterdata.persistence.model.SettlementCategoryOption;
+import com.hospital.his.masterdata.persistence.model.MedicalTechnologyOption;
 import jakarta.validation.constraints.Size;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -55,6 +57,19 @@ public class RegistrationLookupController {
     public ApiResponse<List<DiseaseOption>> diseases(
             @RequestParam(required = false) @Size(max = 64) String keyword) {
         return ApiResponse.success(mapper.findDiseases(trimToNull(keyword), 50));
+    }
+
+    @GetMapping("/medical-technologies")
+    public ApiResponse<List<MedicalTechnologyOption>> medicalTechnologies(
+            @RequestParam(required = false) @Size(max = 64) String keyword,
+            @RequestParam(required = false) String type) {
+        return ApiResponse.success(mapper.findMedicalTechnologies(trimToNull(keyword), trimToNull(type), 50));
+    }
+
+    @GetMapping("/drugs")
+    public ApiResponse<List<DrugOption>> drugs(
+            @RequestParam(required = false) @Size(max = 64) String keyword) {
+        return ApiResponse.success(mapper.findDrugs(trimToNull(keyword), 50));
     }
 
     private String trimToNull(String value) {

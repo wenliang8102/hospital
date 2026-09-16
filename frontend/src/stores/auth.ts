@@ -38,7 +38,15 @@ export const useAuthStore = defineStore('auth', () => {
     clearStoredAuth()
   }
 
+  function hasPermission(permission: string) {
+    return user.value?.permissions.includes(permission) ?? false
+  }
+
+  function hasAnyPermission(permissions: string[]) {
+    return permissions.some(hasPermission)
+  }
+
   window.addEventListener('his:unauthorized', logout)
 
-  return { token, user, isAuthenticated, login, logout }
+  return { token, user, isAuthenticated, login, logout, hasPermission, hasAnyPermission }
 })

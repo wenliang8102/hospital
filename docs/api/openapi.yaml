@@ -9,6 +9,7 @@ security:
   - bearerAuth: []
 tags:
   - name: Auth
+  - name: Platform
   - name: MasterData
   - name: Registration
   - name: Outpatient
@@ -61,7 +62,7 @@ paths:
     get:
       tags: [MasterData]
       summary: 查询有效科室
-      operationId: listDepartments
+      operationId: listDepartmentOptions
       parameters:
         - $ref: '#/components/parameters/Keyword'
         - name: type
@@ -71,6 +72,100 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListResponse'
+  /api/master-data/departments/manage:
+    get:
+      tags: [MasterData]
+      summary: 分页查询科室
+      operationId: searchManagedDepartments
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/DepartmentType'
+        - name: active
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: 科室分页
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentPageEnvelope'
+    post:
+      tags: [MasterData]
+      summary: 创建科室
+      operationId: createDepartment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentRequest'
+      responses:
+        '200':
+          description: 已创建科室
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/master-data/departments/manage/{departmentId}:
+    put:
+      tags: [MasterData]
+      summary: 更新科室
+      operationId: updateDepartment
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentRequest'
+      responses:
+        '200':
+          description: 已更新科室
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/master-data/departments/manage/{departmentId}/active:
+    patch:
+      tags: [MasterData]
+      summary: 启用或停用科室
+      operationId: changeDepartmentActive
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentActiveRequest'
+      responses:
+        '200':
+          description: 已变更科室状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/master-data/employees:
     get:
       tags: [MasterData]
@@ -84,37 +179,6 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListResponse'
-  /api/master-data/diseases:
-    get:
-      tags: [MasterData]
-      summary: 查询有效疾病
-      operationId: listDiseases
-      parameters:
-        - $ref: '#/components/parameters/Keyword'
-      responses:
-        '200':
-          $ref: '#/components/responses/ListResponse'
-  /api/master-data/medical-technologies:
-    get:
-      tags: [MasterData]
-      summary: 查询有效医技项目
-      operationId: listMedicalTechnologies
-      parameters:
-        - $ref: '#/components/parameters/Keyword'
-        - name: type
-          in: query
-          schema: { $ref: '#/components/schemas/MedicalOrderType' }
-      responses:
-        '200': { $ref: '#/components/responses/ListResponse' }
-  /api/master-data/drugs:
-    get:
-      tags: [MasterData]
-      summary: 查询有效药品
-      operationId: listDrugs
-      parameters:
-        - $ref: '#/components/parameters/Keyword'
-      responses:
-        '200': { $ref: '#/components/responses/ListResponse' }
   /api/master-data/{resource}:
     get:
       tags: [MasterData]
@@ -134,6 +198,466 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PageResponse'
+  /api/master-data/employees/manage:
+    get:
+      tags: [MasterData]
+      summary: 分页维护员工
+      operationId: searchManagedEmployees
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: departmentId
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: active
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: 员工分页
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeePageEnvelope' }
+    post:
+      tags: [MasterData]
+      summary: 创建员工
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmployeeRequest' }
+      responses:
+        '200':
+          description: 已创建员工
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeeEnvelope' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /api/master-data/employees/manage/{employeeId}:
+    put:
+      tags: [MasterData]
+      summary: 更新员工
+      operationId: updateEmployee
+      parameters:
+        - $ref: '#/components/parameters/EmployeeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmployeeRequest' }
+      responses:
+        '200':
+          description: 已更新员工
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeeEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/master-data/employees/manage/{employeeId}/active:
+    patch:
+      tags: [MasterData]
+      summary: 启用或停用员工
+      operationId: changeEmployeeActive
+      parameters:
+        - $ref: '#/components/parameters/EmployeeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DepartmentActiveRequest' }
+      responses:
+        '200':
+          description: 已变更员工状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployeeEnvelope' }
+  /api/master-data/diseases/manage:
+    get:
+      tags: [MasterData]
+      summary: 分页维护疾病
+      operationId: searchManagedDiseases
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: active
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: 疾病分页
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiseasePageEnvelope' }
+    post:
+      tags: [MasterData]
+      summary: 创建疾病
+      operationId: createDisease
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiseaseRequest' }
+      responses:
+        '200':
+          description: 已创建疾病
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiseaseEnvelope' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/master-data/diseases/manage/{resourceId}:
+    put:
+      tags: [MasterData]
+      summary: 更新疾病
+      operationId: updateDisease
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiseaseRequest' }
+      responses:
+        '200':
+          description: 已更新疾病
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiseaseEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/master-data/diseases/manage/{resourceId}/active:
+    patch:
+      tags: [MasterData]
+      summary: 启用或停用疾病
+      operationId: changeDiseaseActive
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DepartmentActiveRequest' }
+      responses:
+        '200':
+          description: 已变更疾病状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiseaseEnvelope' }
+  /api/master-data/drugs/manage:
+    get:
+      tags: [MasterData]
+      summary: 分页维护药品
+      operationId: searchManagedDrugs
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: active
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: 药品分页
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DrugPageEnvelope' }
+    post:
+      tags: [MasterData]
+      summary: 创建药品
+      operationId: createDrug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DrugRequest' }
+      responses:
+        '200':
+          description: 已创建药品
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DrugEnvelope' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/master-data/drugs/manage/{resourceId}:
+    put:
+      tags: [MasterData]
+      summary: 更新药品
+      operationId: updateDrug
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DrugRequest' }
+      responses:
+        '200':
+          description: 已更新药品
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DrugEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/master-data/drugs/manage/{resourceId}/active:
+    patch:
+      tags: [MasterData]
+      summary: 启用或停用药品
+      operationId: changeDrugActive
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DepartmentActiveRequest' }
+      responses:
+        '200':
+          description: 已变更药品状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DrugEnvelope' }
+  /api/master-data/medical-technologies/manage:
+    get:
+      tags: [MasterData]
+      summary: 分页维护医技项目
+      operationId: searchManagedMedicalTechnologies
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: active
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: 医技项目分页
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MedicalTechnologyPageEnvelope' }
+    post:
+      tags: [MasterData]
+      summary: 创建医技项目
+      operationId: createMedicalTechnology
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MedicalTechnologyRequest' }
+      responses:
+        '200':
+          description: 已创建医技项目
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MedicalTechnologyEnvelope' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/master-data/medical-technologies/manage/{resourceId}:
+    put:
+      tags: [MasterData]
+      summary: 更新医技项目
+      operationId: updateMedicalTechnology
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MedicalTechnologyRequest' }
+      responses:
+        '200':
+          description: 已更新医技项目
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MedicalTechnologyEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/master-data/medical-technologies/manage/{resourceId}/active:
+    patch:
+      tags: [MasterData]
+      summary: 启用或停用医技项目
+      operationId: changeMedicalTechnologyActive
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DepartmentActiveRequest' }
+      responses:
+        '200':
+          description: 已变更医技项目状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MedicalTechnologyEnvelope' }
+  /api/master-data/scheduling/manage:
+    get:
+      tags: [MasterData]
+      summary: 分页维护排班规则
+      operationId: searchManagedScheduling
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: active
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: 排班规则分页
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SchedulingPageEnvelope' }
+    post:
+      tags: [MasterData]
+      summary: 创建排班规则
+      operationId: createScheduling
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SchedulingRequest' }
+      responses:
+        '200':
+          description: 已创建排班规则
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SchedulingEnvelope' }
+  /api/master-data/scheduling/manage/{resourceId}:
+    put:
+      tags: [MasterData]
+      summary: 更新排班规则
+      operationId: updateScheduling
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SchedulingRequest' }
+      responses:
+        '200':
+          description: 已更新排班规则
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SchedulingEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/master-data/scheduling/manage/{resourceId}/active:
+    patch:
+      tags: [MasterData]
+      summary: 启用或停用排班规则
+      operationId: changeSchedulingActive
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DepartmentActiveRequest' }
+      responses:
+        '200':
+          description: 已变更排班规则状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SchedulingEnvelope' }
+  /api/platform/roles:
+    get:
+      tags: [Platform]
+      summary: 查询平台角色
+      operationId: listPlatformRoles
+      responses:
+        '200':
+          description: 角色列表
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleListEnvelope' }
+  /api/platform/users:
+    get:
+      tags: [Platform]
+      summary: 分页查询平台账号
+      operationId: searchPlatformUsers
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: enabled
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: 平台账号分页
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserAccountPageEnvelope' }
+    post:
+      tags: [Platform]
+      summary: 创建平台账号
+      operationId: createPlatformUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUserRequest' }
+      responses:
+        '200':
+          description: 已创建平台账号
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserAccountEnvelope' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/platform/users/{userId}:
+    put:
+      tags: [Platform]
+      summary: 更新平台账号
+      operationId: updatePlatformUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUserRequest' }
+      responses:
+        '200':
+          description: 已更新平台账号
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserAccountEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/platform/users/{userId}/enabled:
+    patch:
+      tags: [Platform]
+      summary: 启用或停用平台账号
+      operationId: changePlatformUserEnabled
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserEnabledRequest' }
+      responses:
+        '200':
+          description: 已变更平台账号状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserAccountEnvelope' }
+  /api/platform/operation-logs:
+    get:
+      tags: [Platform]
+      summary: 分页查询操作日志
+      operationId: searchOperationLogs
+      parameters:
+        - name: moduleCode
+          in: query
+          schema: { type: string, maxLength: 64 }
+        - name: action
+          in: query
+          schema: { type: string, maxLength: 64 }
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: 操作日志分页
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationLogPageEnvelope' }
   /api/registration/case-numbers:
     post:
       tags: [Registration]
@@ -188,25 +712,6 @@ paths:
       responses:
         '204': { description: 已退号 }
         '409': { $ref: '#/components/responses/Conflict' }
-  /api/registrations/{registrationId}:
-    get:
-      tags: [Registration]
-      summary: 查询挂号详情
-      operationId: getRegistration
-      parameters:
-        - $ref: '#/components/parameters/RegistrationId'
-      responses:
-        '200':
-          description: 挂号详情
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegistrationEnvelope'
-        '404':
-          description: 挂号记录不存在
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/registrations/{registrationId}/charge-items:
     get:
       tags: [Registration]
@@ -258,7 +763,6 @@ paths:
       summary: 查询当前医生患者队列
       operationId: listDoctorPatients
       parameters:
-        - $ref: '#/components/parameters/Keyword'
         - name: state
           in: query
           schema: { $ref: '#/components/schemas/VisitState' }
@@ -267,39 +771,7 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PageResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /api/registrations/{registrationId}/accept:
-    post:
-      tags: [Outpatient]
-      summary: 当前医生接诊患者
-      operationId: acceptPatient
-      parameters:
-        - $ref: '#/components/parameters/RegistrationId'
-      responses:
-        '200':
-          description: 已进入接诊状态
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PatientEnvelope' }
-        '404':
-          description: 患者不存在或不属于当前医生
-        '409': { $ref: '#/components/responses/Conflict' }
   /api/registrations/{registrationId}/medical-record:
-    get:
-      tags: [Outpatient]
-      summary: 查询患者病历首页
-      operationId: getMedicalRecord
-      parameters:
-        - $ref: '#/components/parameters/RegistrationId'
-      responses:
-        '200':
-          description: 病历
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/MedicalRecordEnvelope' }
-        '404':
-          description: 病历尚未建立
     put:
       tags: [Outpatient]
       summary: 创建或更新病历首页
@@ -318,14 +790,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MedicalRecordEnvelope' }
   /api/registrations/{registrationId}/medical-orders:
-    get:
-      tags: [Outpatient]
-      summary: 查询本次就诊的医技申请
-      operationId: listRegistrationMedicalOrders
-      parameters:
-        - $ref: '#/components/parameters/RegistrationId'
-      responses:
-        '200': { $ref: '#/components/responses/ListResponse' }
     post:
       tags: [Outpatient]
       summary: 开立检查、检验或处置申请
@@ -339,32 +803,11 @@ paths:
             schema:
               type: array
               minItems: 1
-              maxItems: 20
               items: { $ref: '#/components/schemas/CreateMedicalOrderRequest' }
       responses:
         '200':
           $ref: '#/components/responses/ListResponse'
-  /api/registrations/{registrationId}/medical-orders/{type}/{orderId}/cancel:
-    post:
-      tags: [Outpatient]
-      summary: 作废未缴费医技申请
-      operationId: cancelRegistrationMedicalOrder
-      parameters:
-        - $ref: '#/components/parameters/RegistrationId'
-        - $ref: '#/components/parameters/MedicalOrderType'
-        - $ref: '#/components/parameters/OrderId'
-      responses:
-        '204': { description: 已作废 }
-        '409': { $ref: '#/components/responses/Conflict' }
   /api/registrations/{registrationId}/prescriptions:
-    get:
-      tags: [Outpatient]
-      summary: 查询本次就诊的处方
-      operationId: listRegistrationPrescriptions
-      parameters:
-        - $ref: '#/components/parameters/RegistrationId'
-      responses:
-        '200': { $ref: '#/components/responses/ListResponse' }
     post:
       tags: [Outpatient]
       summary: 开立处方
@@ -378,22 +821,10 @@ paths:
             schema:
               type: array
               minItems: 1
-              maxItems: 20
               items: { $ref: '#/components/schemas/CreatePrescriptionRequest' }
       responses:
         '200':
           $ref: '#/components/responses/ListResponse'
-  /api/registrations/{registrationId}/prescriptions/{prescriptionId}/cancel:
-    post:
-      tags: [Outpatient]
-      summary: 作废未缴费处方
-      operationId: cancelRegistrationPrescription
-      parameters:
-        - $ref: '#/components/parameters/RegistrationId'
-        - $ref: '#/components/parameters/PrescriptionId'
-      responses:
-        '204': { description: 已作废 }
-        '409': { $ref: '#/components/responses/Conflict' }
   /api/registrations/{registrationId}/complete:
     post:
       tags: [Outpatient]
@@ -402,11 +833,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/RegistrationId'
       responses:
-        '200':
-          description: 看诊完成
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PatientEnvelope' }
+        '204': { description: 看诊完成 }
         '409': { $ref: '#/components/responses/Conflict' }
   /api/medical-orders:
     get:
@@ -585,6 +1012,26 @@ components:
       in: path
       required: true
       schema: { type: integer, format: int64 }
+    DepartmentId:
+      name: departmentId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    EmployeeId:
+      name: employeeId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    ResourceId:
+      name: resourceId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
     MedicalOrderType:
       name: type
       in: path
@@ -606,8 +1053,8 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
-    Forbidden:
-      description: 当前账号无权执行此操作或未绑定业务员工档案
+    Conflict:
+      description: 业务状态冲突
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -616,8 +1063,13 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
-    Conflict:
-      description: 业务状态冲突
+    ValidationError:
+      description: 参数格式或必填项错误
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: 业务对象不存在
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -727,14 +1179,336 @@ components:
     DepartmentType:
       type: string
       enum: [OUTPATIENT, CHECK, INSPECTION, DISPOSAL, FINANCE, PHARMACY]
+    DepartmentRequest:
+      type: object
+      required: [code, name, type, active]
+      properties:
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 64 }
+        type: { $ref: '#/components/schemas/DepartmentType' }
+        active: { type: boolean }
+    DepartmentActiveRequest:
+      type: object
+      required: [active]
+      properties:
+        active: { type: boolean }
+    Department:
+      allOf:
+        - $ref: '#/components/schemas/DepartmentRequest'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer, format: int64 }
+    DepartmentEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Department' }
+    DepartmentPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/PageData'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: '#/components/schemas/Department' }
+    EmployeeRequest:
+      type: object
+      required: [realName, departmentId, active]
+      properties:
+        realName: { type: string, maxLength: 64 }
+        departmentId: { type: integer, format: int64 }
+        registLevelId: { type: [integer, 'null'], format: int64 }
+        schedulingId: { type: [integer, 'null'], format: int64 }
+        active: { type: boolean }
+    Employee:
+      allOf:
+        - $ref: '#/components/schemas/EmployeeRequest'
+        - type: object
+          required: [id, departmentName]
+          properties:
+            id: { type: integer, format: int64 }
+            departmentName: { type: string }
+            registLevelName: { type: [string, 'null'] }
+    EmployeeEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Employee' }
+    EmployeePageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/PageData'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: '#/components/schemas/Employee' }
+    DiseaseRequest:
+      type: object
+      required: [code, name, active]
+      properties:
+        code: { type: string, maxLength: 50 }
+        name: { type: string, maxLength: 255 }
+        icd: { type: [string, 'null'], maxLength: 50 }
+        category: { type: [string, 'null'], maxLength: 50 }
+        active: { type: boolean }
+    Disease:
+      allOf:
+        - $ref: '#/components/schemas/DiseaseRequest'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer, format: int64 }
+    DiseaseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Disease' }
+    DiseasePageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/PageData'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: '#/components/schemas/Disease' }
+    DrugRequest:
+      type: object
+      required: [code, name, format, unit, price, active]
+      properties:
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 255 }
+        format: { type: string, maxLength: 255 }
+        unit: { type: string, maxLength: 16 }
+        manufacturer: { type: [string, 'null'], maxLength: 255 }
+        dosage: { type: [string, 'null'], maxLength: 64 }
+        type: { type: [string, 'null'], maxLength: 64 }
+        price: { type: number, minimum: 0, multipleOf: 0.01 }
+        mnemonicCode: { type: [string, 'null'], maxLength: 64 }
+        active: { type: boolean }
+    Drug:
+      allOf:
+        - $ref: '#/components/schemas/DrugRequest'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer, format: int64 }
+    DrugEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Drug' }
+    DrugPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/PageData'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: '#/components/schemas/Drug' }
+    MedicalTechnologyRequest:
+      type: object
+      required: [code, name, price, type, departmentId, active]
+      properties:
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 128 }
+        format: { type: [string, 'null'], maxLength: 64 }
+        price: { type: number, minimum: 0, multipleOf: 0.01 }
+        type: { type: string, maxLength: 32 }
+        priceType: { type: [string, 'null'], maxLength: 64 }
+        departmentId: { type: integer, format: int64 }
+        active: { type: boolean }
+    MedicalTechnology:
+      allOf:
+        - $ref: '#/components/schemas/MedicalTechnologyRequest'
+        - type: object
+          required: [id, departmentName]
+          properties:
+            id: { type: integer, format: int64 }
+            departmentName: { type: string }
+    MedicalTechnologyEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MedicalTechnology' }
+    MedicalTechnologyPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/PageData'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: '#/components/schemas/MedicalTechnology' }
+    SchedulingRequest:
+      type: object
+      required: [name, weekRule, active]
+      properties:
+        name: { type: string, maxLength: 64 }
+        weekRule: { type: string, pattern: '^[01]{14}$' }
+        active: { type: boolean }
+    Scheduling:
+      allOf:
+        - $ref: '#/components/schemas/SchedulingRequest'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer, format: int64 }
+    SchedulingEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Scheduling' }
+    SchedulingPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/PageData'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: '#/components/schemas/Scheduling' }
+    Role:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string }
+        name: { type: string }
+    RoleListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/Role' }
+    CreateUserRequest:
+      type: object
+      required: [username, password, displayName, enabled, roleCodes]
+      properties:
+        username: { type: string, maxLength: 64 }
+        password: { type: string, minLength: 5, maxLength: 128, format: password }
+        displayName: { type: string, maxLength: 64 }
+        employeeId: { type: [integer, 'null'], format: int64 }
+        enabled: { type: boolean }
+        roleCodes:
+          type: array
+          minItems: 1
+          items: { type: string, maxLength: 64 }
+    UpdateUserRequest:
+      type: object
+      required: [displayName, enabled, roleCodes]
+      properties:
+        displayName: { type: string, maxLength: 64 }
+        employeeId: { type: [integer, 'null'], format: int64 }
+        enabled: { type: boolean }
+        roleCodes:
+          type: array
+          minItems: 1
+          items: { type: string, maxLength: 64 }
+    UserEnabledRequest:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+    UserAccount:
+      type: object
+      required: [id, username, displayName, enabled, roles]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        displayName: { type: string }
+        employeeId: { type: [integer, 'null'], format: int64 }
+        employeeName: { type: [string, 'null'] }
+        enabled: { type: boolean }
+        roles:
+          type: array
+          items: { $ref: '#/components/schemas/Role' }
+    UserAccountEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/UserAccount' }
+    UserAccountPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/PageData'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: '#/components/schemas/UserAccount' }
+    OperationLog:
+      type: object
+      required: [id, moduleCode, action, targetType, targetId, detail, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        operatorId: { type: [integer, 'null'], format: int64 }
+        moduleCode: { type: string }
+        action: { type: string }
+        targetType: { type: string }
+        targetId: { type: string }
+        detail: { type: string }
+        createdAt: { type: string, format: date-time }
+    OperationLogPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: '#/components/schemas/PageData'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items: { $ref: '#/components/schemas/OperationLog' }
     PaymentMethod:
       type: string
       enum: [CASH, BANK_CARD, WECHAT, ALIPAY, MEDICAL_INSURANCE]
     CreateRegistrationRequest:
       type: object
-      required: [requestId, caseNumber, realName, gender, visitDate, noon, departmentId, employeeId, registrationLevelId, settlementCategoryId, registrationMethod]
+      required: [caseNumber, realName, gender, visitDate, noon, departmentId, employeeId, registLevelId, settleCategoryId, registMethod]
       properties:
-        requestId: { type: string, minLength: 1, maxLength: 64, description: 客户端生成的挂号幂等键 }
         caseNumber: { type: string, maxLength: 64 }
         realName: { type: string, maxLength: 64 }
         gender: { type: string, enum: [MALE, FEMALE, UNKNOWN] }
@@ -747,68 +1521,28 @@ components:
         noon: { type: string, enum: [AM, PM] }
         departmentId: { type: integer, format: int64 }
         employeeId: { type: integer, format: int64 }
-        registrationLevelId: { type: integer, format: int64 }
-        settlementCategoryId: { type: integer, format: int64 }
-        booked: { type: boolean, default: false }
-        registrationMethod: { $ref: '#/components/schemas/PaymentMethod' }
+        registLevelId: { type: integer, format: int64 }
+        settleCategoryId: { type: integer, format: int64 }
+        isBook: { type: boolean, default: false }
+        registMethod: { $ref: '#/components/schemas/PaymentMethod' }
     Registration:
       allOf:
         - $ref: '#/components/schemas/CreateRegistrationRequest'
         - type: object
-          required: [id, state, registrationFee, departmentName, employeeName, registrationLevelName, settlementCategoryName, createdAt]
+          required: [id, state, registMoney]
           properties:
             id: { type: integer, format: int64 }
             state: { $ref: '#/components/schemas/VisitState' }
-            registrationFee: { type: number, multipleOf: 0.01 }
-            departmentName: { type: string }
-            employeeName: { type: string }
-            registrationLevelName: { type: string }
-            settlementCategoryName: { type: string }
-            createdAt: { type: string, format: date-time }
+            registMoney: { type: number, multipleOf: 0.01 }
     RegistrationEnvelope:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
         - type: object
           properties:
             data: { $ref: '#/components/schemas/Registration' }
-    Patient:
-      type: object
-      required: [id, caseNumber, realName, gender, visitDate, noon, departmentId, departmentName, employeeId, employeeName, registrationLevelName, state, createdAt]
-      properties:
-        id: { type: integer, format: int64 }
-        caseNumber: { type: string }
-        realName: { type: string }
-        gender: { type: string, enum: [MALE, FEMALE, UNKNOWN] }
-        cardNumber: { type: [string, 'null'] }
-        birthday: { type: [string, 'null'], format: date }
-        age: { type: [integer, 'null'] }
-        ageType: { type: [string, 'null'], enum: [YEAR, DAY, null] }
-        visitDate: { type: string, format: date-time }
-        noon: { type: string, enum: [AM, PM] }
-        departmentId: { type: integer, format: int64 }
-        departmentName: { type: string }
-        employeeId: { type: integer, format: int64 }
-        employeeName: { type: string }
-        registrationLevelName: { type: string }
-        state: { $ref: '#/components/schemas/VisitState' }
-        createdAt: { type: string, format: date-time }
-    PatientEnvelope:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            data: { $ref: '#/components/schemas/Patient' }
-    Disease:
-      type: object
-      required: [id, code, name]
-      properties:
-        id: { type: integer, format: int64 }
-        code: { type: string }
-        name: { type: string }
-        icd: { type: [string, 'null'] }
     MedicalRecordRequest:
       type: object
-      required: [diseaseIds]
+      required: [chiefComplaint]
       properties:
         chiefComplaint: { type: string, maxLength: 500 }
         presentIllness: { type: string }
@@ -822,7 +1556,6 @@ components:
         treatmentPlan: { type: string }
         diseaseIds:
           type: array
-          maxItems: 20
           uniqueItems: true
           items: { type: integer, format: int64 }
     MedicalRecordEnvelope:
@@ -836,12 +1569,6 @@ components:
                 - type: object
                   properties:
                     id: { type: integer, format: int64 }
-                    registrationId: { type: integer, format: int64 }
-                    diseases:
-                      type: array
-                      items: { $ref: '#/components/schemas/Disease' }
-                    createdAt: { type: string, format: date-time }
-                    updatedAt: { type: string, format: date-time }
     CreateMedicalOrderRequest:
       type: object
       required: [type, medicalTechnologyId]
@@ -902,17 +1629,13 @@ components:
         idempotencyKey: { type: string, maxLength: 64 }
     Payment:
       type: object
-      required: [id, transactionNo, registrationId, transactionType, paymentMethod, amount, status, createdAt]
+      required: [id, transactionNo, transactionType, amount, status, createdAt]
       properties:
         id: { type: integer, format: int64 }
         transactionNo: { type: string }
-        registrationId: { type: integer, format: int64 }
         transactionType: { type: string, enum: [PAYMENT, REFUND] }
-        paymentMethod: { $ref: '#/components/schemas/PaymentMethod' }
         amount: { type: number, multipleOf: 0.01 }
         status: { type: string, enum: [SUCCESS, FAILED] }
-        originalTransactionId: { type: [integer, 'null'], format: int64 }
-        reason: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
     PaymentEnvelope:
       allOf:

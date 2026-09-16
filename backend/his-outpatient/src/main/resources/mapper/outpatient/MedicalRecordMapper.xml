@@ -11,7 +11,7 @@
         SELECT <include refid="columns"/> FROM medical_record WHERE register_id = #{registrationId}
     </select>
 
-    <insert id="insert">
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO medical_record (
             register_id, chief_complaint, present_illness, present_treatment, past_history,
             allergy_history, physical_examination, examination_proposal, precaution, diagnosis, treatment_plan
@@ -30,4 +30,28 @@
             diagnosis = #{diagnosis}, treatment_plan = #{treatmentPlan}
         WHERE register_id = #{registrationId}
     </update>
+
+    <select id="findDiseases" resultType="com.hospital.his.outpatient.persistence.model.DiseaseRow">
+        SELECT d.id, d.disease_code AS code, d.disease_name AS name, d.disease_icd AS icd
+        FROM medical_record_disease mrd
+        JOIN disease d ON d.id = mrd.disease_id
+        WHERE mrd.medical_record_id = #{medicalRecordId} AND mrd.diagnosis_type = 'FINAL'
+        ORDER BY d.disease_code, d.id
+    </select>
+
+    <select id="countActiveDiseases" resultType="long">
+        SELECT COUNT(*) FROM disease WHERE active = TRUE AND id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <delete id="deleteDiseases">
+        DELETE FROM medical_record_disease WHERE medical_record_id = #{medicalRecordId}
+    </delete>
+
+    <insert id="insertDiseases">
+        INSERT INTO medical_record_disease (medical_record_id, disease_id, diagnosis_type) VALUES
+        <foreach collection="diseaseIds" item="diseaseId" separator=",">
+            (#{medicalRecordId}, #{diseaseId}, 'FINAL')
+        </foreach>
+    </insert>
 </mapper>

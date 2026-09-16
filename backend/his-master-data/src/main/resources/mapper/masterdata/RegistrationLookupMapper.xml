@@ -34,4 +34,18 @@
         SELECT id, settle_code AS code, settle_name AS name
         FROM settle_category WHERE active = TRUE ORDER BY sequence_no, id
     </select>
+
+    <select id="findDiseases" resultType="com.hospital.his.masterdata.persistence.model.DiseaseOption">
+        SELECT id, disease_code AS code, disease_name AS name, disease_icd AS icd,
+               disease_category AS category
+        FROM disease
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (disease_code LIKE CONCAT('%', #{keyword}, '%')
+                OR disease_name LIKE CONCAT('%', #{keyword}, '%')
+                OR disease_icd LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY disease_code, id
+        LIMIT #{limit}
+    </select>
 </mapper>

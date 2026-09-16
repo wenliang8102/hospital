@@ -25,6 +25,10 @@ REGISTERED -> IN_CONSULTATION -> COMPLETED
 | `REGISTERED` | `CANCELLED` | 挂号收费 | 未接诊且无已缴费项目 |
 | `IN_CONSULTATION` | `COMPLETED` | 门诊 | 已保存病历和最终诊断 |
 
+- 门诊接口从 JWT 的 `employeeId` 识别当前医生，不接受客户端传入医生编号。
+- 患者队列、接诊、病历保存和完成看诊均校验挂号记录属于当前医生。
+- 未绑定员工档案的账号不能执行门诊操作，即使账号拥有门诊权限。
+
 ### 医技申请 `MedicalOrderState`
 
 ```text

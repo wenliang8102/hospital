@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.outpatient.persistence.mapper.OutpatientMapper">
+    <sql id="patientColumns">
+        r.id, r.case_number, r.real_name, r.gender, r.card_number, r.birthday, r.age, r.age_type,
+        r.visit_date, r.noon, r.department_id, d.dept_name AS department_name,
+        r.employee_id, e.real_name AS employee_name, rl.regist_name AS registration_level_name,
+        r.visit_state AS state, r.created_at
+    </sql>
+
+    <sql id="patientFrom">
+        FROM `register` r
+        JOIN department d ON d.id = r.department_id
+        JOIN employee e ON e.id = r.employee_id
+        JOIN regist_level rl ON rl.id = r.regist_level_id
+    </sql>
+
+    <sql id="patientFilters">
+        WHERE r.employee_id = #{employeeId}
+        <if test="keyword != null and keyword != ''">
+            AND (r.case_number LIKE CONCAT('%', #{keyword}, '%')
+                OR r.real_name LIKE CONCAT('%', #{keyword}, '%')
+                OR r.card_number LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="state != null and state != ''">AND r.visit_state = #{state}</if>
+    </sql>
+
+    <select id="findPatient" resultType="com.hospital.his.outpatient.persistence.model.PatientQueueRow">
+        SELECT <include refid="patientColumns"/> <include refid="patientFrom"/>
+        WHERE r.id = #{registrationId} AND r.employee_id = #{employeeId}
+    </select>
+
+    <select id="searchPatients" resultType="com.hospital.his.outpatient.persistence.model.PatientQueueRow">
+        SELECT <include refid="patientColumns"/> <include refid="patientFrom"/>
+        <include refid="patientFilters"/>
+        ORDER BY CASE r.visit_state WHEN 'IN_CONSULTATION' THEN 0 WHEN 'REGISTERED' THEN 1 ELSE 2 END,
+                 r.visit_date, r.id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPatients" resultType="long">
+        SELECT COUNT(*) <include refid="patientFrom"/> <include refid="patientFilters"/>
+    </select>
+
+    <update id="transitionState">
+        UPDATE `register` SET visit_state = #{targetState}
+        WHERE id = #{registrationId} AND employee_id = #{employeeId} AND visit_state = #{expectedState}
+    </update>
+</mapper>

@@ -84,6 +84,16 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListResponse'
+  /api/master-data/diseases:
+    get:
+      tags: [MasterData]
+      summary: 查询有效疾病
+      operationId: listDiseases
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListResponse'
   /api/master-data/{resource}:
     get:
       tags: [MasterData]
@@ -227,6 +237,7 @@ paths:
       summary: 查询当前医生患者队列
       operationId: listDoctorPatients
       parameters:
+        - $ref: '#/components/parameters/Keyword'
         - name: state
           in: query
           schema: { $ref: '#/components/schemas/VisitState' }
@@ -235,7 +246,39 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/PageResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/registrations/{registrationId}/accept:
+    post:
+      tags: [Outpatient]
+      summary: 当前医生接诊患者
+      operationId: acceptPatient
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      responses:
+        '200':
+          description: 已进入接诊状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PatientEnvelope' }
+        '404':
+          description: 患者不存在或不属于当前医生
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/registrations/{registrationId}/medical-record:
+    get:
+      tags: [Outpatient]
+      summary: 查询患者病历首页
+      operationId: getMedicalRecord
+      parameters:
+        - $ref: '#/components/parameters/RegistrationId'
+      responses:
+        '200':
+          description: 病历
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MedicalRecordEnvelope' }
+        '404':
+          description: 病历尚未建立
     put:
       tags: [Outpatient]
       summary: 创建或更新病历首页
@@ -297,7 +340,11 @@ paths:
       parameters:
         - $ref: '#/components/parameters/RegistrationId'
       responses:
-        '204': { description: 看诊完成 }
+        '200':
+          description: 看诊完成
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PatientEnvelope' }
         '409': { $ref: '#/components/responses/Conflict' }
   /api/medical-orders:
     get:
@@ -421,6 +468,11 @@ components:
   responses:
     Unauthorized:
       description: 未登录或令牌无效
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: 当前账号无权执行此操作或未绑定业务员工档案
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -579,9 +631,44 @@ components:
         - type: object
           properties:
             data: { $ref: '#/components/schemas/Registration' }
+    Patient:
+      type: object
+      required: [id, caseNumber, realName, gender, visitDate, noon, departmentId, departmentName, employeeId, employeeName, registrationLevelName, state, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        caseNumber: { type: string }
+        realName: { type: string }
+        gender: { type: string, enum: [MALE, FEMALE, UNKNOWN] }
+        cardNumber: { type: [string, 'null'] }
+        birthday: { type: [string, 'null'], format: date }
+        age: { type: [integer, 'null'] }
+        ageType: { type: [string, 'null'], enum: [YEAR, DAY, null] }
+        visitDate: { type: string, format: date-time }
+        noon: { type: string, enum: [AM, PM] }
+        departmentId: { type: integer, format: int64 }
+        departmentName: { type: string }
+        employeeId: { type: integer, format: int64 }
+        employeeName: { type: string }
+        registrationLevelName: { type: string }
+        state: { $ref: '#/components/schemas/VisitState' }
+        createdAt: { type: string, format: date-time }
+    PatientEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Patient' }
+    Disease:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: integer, format: int64 }
+        code: { type: string }
+        name: { type: string }
+        icd: { type: [string, 'null'] }
     MedicalRecordRequest:
       type: object
-      required: [chiefComplaint]
+      required: [diseaseIds]
       properties:
         chiefComplaint: { type: string, maxLength: 500 }
         presentIllness: { type: string }
@@ -595,6 +682,7 @@ components:
         treatmentPlan: { type: string }
         diseaseIds:
           type: array
+          maxItems: 20
           uniqueItems: true
           items: { type: integer, format: int64 }
     MedicalRecordEnvelope:
@@ -608,6 +696,12 @@ components:
                 - type: object
                   properties:
                     id: { type: integer, format: int64 }
+                    registrationId: { type: integer, format: int64 }
+                    diseases:
+                      type: array
+                      items: { $ref: '#/components/schemas/Disease' }
+                    createdAt: { type: string, format: date-time }
+                    updatedAt: { type: string, format: date-time }
     CreateMedicalOrderRequest:
       type: object
       required: [type, medicalTechnologyId]

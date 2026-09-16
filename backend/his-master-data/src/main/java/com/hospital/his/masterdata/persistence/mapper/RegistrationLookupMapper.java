@@ -1,6 +1,7 @@
 package com.hospital.his.masterdata.persistence.mapper;
 
 import com.hospital.his.masterdata.persistence.model.DepartmentOption;
+import com.hospital.his.masterdata.persistence.model.DiseaseOption;
 import com.hospital.his.masterdata.persistence.model.EmployeeOption;
 import com.hospital.his.masterdata.persistence.model.RegistrationLevelOption;
 import com.hospital.his.masterdata.persistence.model.SettlementCategoryOption;
@@ -20,4 +21,6 @@ public interface RegistrationLookupMapper {
     List<RegistrationLevelOption> findRegistrationLevels();
 
     List<SettlementCategoryOption> findSettlementCategories();
+
+    List<DiseaseOption> findDiseases(@Param("keyword") String keyword, @Param("limit") int limit);
 }

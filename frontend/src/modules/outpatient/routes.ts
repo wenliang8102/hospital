@@ -4,9 +4,7 @@ export const outpatientRoutes: RouteRecordRaw[] = [
   {
     path: 'outpatient',
     name: 'outpatient',
-    component: () => import('@/components/ModuleWorkspace.vue'),
-    props: { moduleCode: 'outpatient', title: '门诊诊疗', accent: '#2563eb' },
+    component: () => import('./views/OutpatientView.vue'),
     meta: { title: '门诊诊疗' },
   },
 ]
-

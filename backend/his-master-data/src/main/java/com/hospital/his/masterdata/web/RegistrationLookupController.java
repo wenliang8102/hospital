@@ -3,6 +3,7 @@ package com.hospital.his.masterdata.web;
 import com.hospital.his.common.api.ApiResponse;
 import com.hospital.his.masterdata.persistence.mapper.RegistrationLookupMapper;
 import com.hospital.his.masterdata.persistence.model.DepartmentOption;
+import com.hospital.his.masterdata.persistence.model.DiseaseOption;
 import com.hospital.his.masterdata.persistence.model.EmployeeOption;
 import com.hospital.his.masterdata.persistence.model.RegistrationLevelOption;
 import com.hospital.his.masterdata.persistence.model.SettlementCategoryOption;
@@ -19,7 +20,7 @@ import java.util.List;
 @Validated
 @RestController
 @RequestMapping("/api/master-data")
-@PreAuthorize("hasAnyAuthority('master-data:read', 'registration:write')")
+@PreAuthorize("hasAnyAuthority('master-data:read', 'registration:write', 'outpatient:write')")
 public class RegistrationLookupController {
     private final RegistrationLookupMapper mapper;
 
@@ -48,6 +49,12 @@ public class RegistrationLookupController {
     @GetMapping("/settle-categories")
     public ApiResponse<List<SettlementCategoryOption>> settlementCategories() {
         return ApiResponse.success(mapper.findSettlementCategories());
+    }
+
+    @GetMapping("/diseases")
+    public ApiResponse<List<DiseaseOption>> diseases(
+            @RequestParam(required = false) @Size(max = 64) String keyword) {
+        return ApiResponse.success(mapper.findDiseases(trimToNull(keyword), 50));
     }
 
     private String trimToNull(String value) {

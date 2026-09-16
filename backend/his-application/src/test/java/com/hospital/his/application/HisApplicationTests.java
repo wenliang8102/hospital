@@ -25,6 +25,7 @@ import java.time.LocalDate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -219,8 +220,86 @@ class HisApplicationTests {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
+    @Test
+    void completesOutpatientConsultationWithMedicalRecordAndDiagnosis() throws Exception {
+        seedRegistrationReferences();
+        jdbcTemplate.update("INSERT INTO disease (id, disease_code, disease_name, disease_icd) VALUES (1, 'J00', '急性鼻咽炎', 'J00')");
+        String registrationResponse = mockMvc.perform(post("/api/registrations")
+                        .with(registrationJwt())
+                        .contentType("application/json")
+                        .content(registrationRequest("outpatient-001", 1,
+                                LocalDate.now() + "T09:00:00")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        long registrationId = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(registrationResponse).path("data").path("id").asLong();
+
+        mockMvc.perform(get("/api/outpatient/patients").with(outpatientJwt(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].realName").value("张三"));
+
+        mockMvc.perform(post("/api/registrations/{id}/accept", registrationId).with(outpatientJwt(2)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/registrations/{id}/accept", registrationId).with(outpatientJwt(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("IN_CONSULTATION"));
+
+        mockMvc.perform(post("/api/registrations/{id}/complete", registrationId).with(outpatientJwt(1)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_STATE_TRANSITION"));
+
+        String medicalRecord = """
+                {
+                  "chiefComplaint": "鼻塞、流涕一天",
+                  "presentIllness": "无发热",
+                  "diagnosis": "急性鼻咽炎",
+                  "treatmentPlan": "对症治疗",
+                  "diseaseIds": [1]
+                }
+                """;
+        mockMvc.perform(put("/api/registrations/{id}/medical-record", registrationId)
+                        .with(outpatientJwt(1))
+                        .contentType("application/json")
+                        .content(medicalRecord))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.chiefComplaint").value("鼻塞、流涕一天"))
+                .andExpect(jsonPath("$.data.diseases[0].code").value("J00"));
+        mockMvc.perform(put("/api/registrations/{id}/medical-record", registrationId)
+                        .with(outpatientJwt(1))
+                        .contentType("application/json")
+                        .content(medicalRecord))
+                .andExpect(status().isOk());
+        org.assertj.core.api.Assertions.assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM medical_record WHERE register_id = ?", Long.class, registrationId))
+                .isEqualTo(1);
+
+        mockMvc.perform(get("/api/master-data/diseases")
+                        .param("keyword", "J00")
+                        .with(outpatientJwt(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].name").value("急性鼻咽炎"));
+        mockMvc.perform(post("/api/registrations/{id}/complete", registrationId).with(outpatientJwt(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.state").value("COMPLETED"));
+    }
+
+    @Test
+    void outpatientActionsRequireEmployeeBinding() throws Exception {
+        mockMvc.perform(get("/api/outpatient/patients")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("outpatient:write"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+    }
+
     private JwtRequestPostProcessor registrationJwt() {
         return jwt().authorities(new SimpleGrantedAuthority("registration:write"));
+    }
+
+    private JwtRequestPostProcessor outpatientJwt(long employeeId) {
+        return jwt()
+                .jwt(builder -> builder.claim("employeeId", employeeId))
+                .authorities(new SimpleGrantedAuthority("outpatient:write"));
     }
 
     private void seedRegistrationReferences() {

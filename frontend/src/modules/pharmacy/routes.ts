@@ -4,9 +4,7 @@ export const pharmacyRoutes: RouteRecordRaw[] = [
   {
     path: 'pharmacy',
     name: 'pharmacy',
-    component: () => import('@/components/ModuleWorkspace.vue'),
-    props: { moduleCode: 'pharmacy', title: '药房管理', accent: '#7c3aed' },
+    component: () => import('./views/PharmacyDispenseView.vue'),
     meta: { title: '药房管理' },
   },
 ]
-

@@ -4,9 +4,7 @@ export const medicalTechRoutes: RouteRecordRaw[] = [
   {
     path: 'medical-tech',
     name: 'medical-tech',
-    component: () => import('@/components/ModuleWorkspace.vue'),
-    props: { moduleCode: 'medical-tech', title: '医技执行', accent: '#b45309' },
+    component: () => import('./views/MedicalTechExecutionView.vue'),
     meta: { title: '医技执行' },
   },
 ]
-

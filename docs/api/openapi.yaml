@@ -421,6 +421,7 @@ paths:
         - name: state
           in: query
           schema: { $ref: '#/components/schemas/MedicalOrderState' }
+        - $ref: '#/components/parameters/Keyword'
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
       responses:
@@ -436,6 +437,17 @@ paths:
         - $ref: '#/components/parameters/OrderId'
       responses:
         '204': { description: 已接收 }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/medical-orders/{type}/{orderId}/execute:
+    post:
+      tags: [MedicalTech]
+      summary: 执行医技申请
+      operationId: executeMedicalOrder
+      parameters:
+        - $ref: '#/components/parameters/MedicalOrderType'
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '204': { description: 已执行 }
         '409': { $ref: '#/components/responses/Conflict' }
   /api/medical-orders/{type}/{orderId}/result:
     post:
@@ -488,6 +500,67 @@ paths:
       responses:
         '204': { description: 退药完成 }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/pharmacy/stocks:
+    get:
+      tags: [Pharmacy]
+      summary: 查询药品库存与低库存预警
+      operationId: searchDrugStocks
+      parameters:
+        - $ref: '#/components/parameters/Keyword'
+        - name: maxQuantity
+          in: query
+          description: 仅返回库存小于等于该阈值的药品；不传则查询全部库存。
+          schema: { type: integer, minimum: 0 }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PageResponse'
+  /api/pharmacy/stocks/inbound:
+    post:
+      tags: [Pharmacy]
+      summary: 药品入库并写入库存流水
+      operationId: inboundDrugStock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DrugStockInboundRequest' }
+      responses:
+        '204': { description: 入库完成 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/pharmacy/stocks/adjustment:
+    post:
+      tags: [Pharmacy]
+      summary: 调整药品库存并写入库存流水
+      operationId: adjustDrugStock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DrugStockAdjustmentRequest' }
+      responses:
+        '204': { description: 调整完成 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/pharmacy/stock-transactions:
+    get:
+      tags: [Pharmacy]
+      summary: 查询药品库存流水
+      operationId: searchDrugStockTransactions
+      parameters:
+        - name: drugId
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: prescriptionId
+          in: query
+          schema: { type: integer, format: int64 }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          $ref: '#/components/responses/PageResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -535,6 +608,11 @@ components:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     Forbidden:
       description: 当前账号无权执行此操作或未绑定业务员工档案
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    BadRequest:
+      description: 请求参数不合法
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -786,6 +864,18 @@ components:
         drugId: { type: integer, format: int64 }
         drugUsage: { type: string, maxLength: 500 }
         drugNumber: { type: integer, minimum: 1 }
+    DrugStockInboundRequest:
+      type: object
+      required: [drugId, quantity]
+      properties:
+        drugId: { type: integer, format: int64 }
+        quantity: { type: integer, minimum: 1, maximum: 999999 }
+    DrugStockAdjustmentRequest:
+      type: object
+      required: [drugId, targetQuantity]
+      properties:
+        drugId: { type: integer, format: int64 }
+        targetQuantity: { type: integer, minimum: 0, maximum: 999999 }
     PaymentRequest:
       type: object
       required: [registrationId, chargeItemIds, paymentMethod, idempotencyKey]

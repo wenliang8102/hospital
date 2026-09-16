@@ -16,7 +16,7 @@
 | 方向 | 认领状态 | 负责模块 | 核心职责 | 参考工作量 |
 | --- | --- | --- | --- | --- |
 | 方向一：核心门诊链路与集成 | **已由仓库持有者 `wenliang8102` 认领** | `his-registration`、`his-outpatient`；前端 `modules/registration`、`modules/outpatient` | 挂号退号、接诊、病历诊断、申请与处方开立、收费退费、核心流程集成测试 | 40%–45% |
-| 方向二：平台与基础数据 | 待成员认领 | `his-platform`、`his-master-data`；前端 `modules/master-data` 及平台页面 | 用户角色、员工账号、操作日志、科室、医生、疾病、药品、医技项目、排班 | 25%–30% |
+| 方向二：平台与基础数据 | `pingk94-copy` | `his-platform`、`his-master-data`；前端 `modules/master-data` 及平台页面 | 用户角色、员工账号、操作日志、科室、医生、疾病、药品、医技项目、排班 | 25%–30% |
 | 方向三：医技与药房执行 | 待成员认领 | `his-medical-tech`、`his-pharmacy`；前端 `modules/medical-tech`、`modules/pharmacy` | 检查/检验/处置队列与结果、发药退药、库存及库存流水 | 30% |
 
 认领方向二或方向三后，应在自己的首次功能 PR 中将表格的“待成员认领”改为 GitHub 用户名。不得跨方向直接修改对方模块内部代码；需要协作时先明确接口或由模块负责人提供应用服务。

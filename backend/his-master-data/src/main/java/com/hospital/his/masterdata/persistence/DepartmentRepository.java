@@ -3,6 +3,7 @@ package com.hospital.his.masterdata.persistence;
 import com.hospital.his.common.persistence.PageQuery;
 import com.hospital.his.common.persistence.PageResult;
 import com.hospital.his.masterdata.persistence.mapper.DepartmentMapper;
+import com.hospital.his.masterdata.persistence.model.DepartmentDraft;
 import com.hospital.his.masterdata.persistence.model.DepartmentRow;
 import org.springframework.stereotype.Repository;
 
@@ -25,5 +26,24 @@ public class DepartmentRepository {
                 mapper.findPage(keyword, type, active, page.offset(), page.size()),
                 page,
                 total);
+    }
+
+    public DepartmentRow create(DepartmentDraft draft) {
+        mapper.insert(draft);
+        return mapper.findById(draft.getId()).orElseThrow();
+    }
+
+    public DepartmentRow update(Long id, DepartmentDraft draft) {
+        if (mapper.update(id, draft) == 0) {
+            return null;
+        }
+        return mapper.findById(id).orElseThrow();
+    }
+
+    public DepartmentRow updateActive(Long id, boolean active) {
+        if (mapper.updateActive(id, active) == 0) {
+            return null;
+        }
+        return mapper.findById(id).orElseThrow();
     }
 }

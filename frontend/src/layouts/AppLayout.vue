@@ -10,6 +10,7 @@ import {
   OfficeBuilding,
   SwitchButton,
   Setting,
+  User,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/core/http'
@@ -21,15 +22,18 @@ const mobileMenuOpen = ref(false)
 
 const navigation = [
   { path: '/', label: '工作台', icon: DataBoard },
+  { path: '/platform/users', label: '平台账号', icon: User, permission: 'platform:manage' },
+  { path: '/platform/logs', label: '操作日志', icon: Files, permission: 'platform:manage' },
   { path: '/registration', label: '挂号收费', icon: Calendar },
   { path: '/outpatient', label: '门诊诊疗', icon: Files },
   { path: '/medical-tech', label: '医技执行', icon: FirstAidKit },
   { path: '/pharmacy', label: '药房管理', icon: OfficeBuilding },
-  { path: '/master-data', label: '基础数据', icon: Setting },
+  { path: '/master-data', label: '基础数据', icon: Setting, permission: 'master-data:read' },
 ]
 
 const pageTitle = computed(() => String(route.meta.title ?? '工作台'))
-const activePath = computed(() => (route.path === '/' ? '/' : `/${route.path.split('/')[1]}`))
+const activePath = computed(() => route.path)
+const visibleNavigation = computed(() => navigation.filter((item) => !item.permission || auth.hasPermission(item.permission)))
 
 function navigate(path: string) {
   mobileMenuOpen.value = false
@@ -58,7 +62,7 @@ async function logout() {
       </div>
 
       <el-menu class="navigation" :default-active="activePath" router>
-        <el-menu-item v-for="item in navigation" :key="item.path" :index="item.path">
+        <el-menu-item v-for="item in visibleNavigation" :key="item.path" :index="item.path">
           <el-icon><component :is="item.icon" /></el-icon>
           <span>{{ item.label }}</span>
         </el-menu-item>
@@ -79,7 +83,7 @@ async function logout() {
         </div>
       </div>
       <el-menu class="navigation mobile-navigation" :default-active="activePath">
-        <el-menu-item v-for="item in navigation" :key="item.path" :index="item.path" @click="navigate(item.path)">
+        <el-menu-item v-for="item in visibleNavigation" :key="item.path" :index="item.path" @click="navigate(item.path)">
           <el-icon><component :is="item.icon" /></el-icon>
           <span>{{ item.label }}</span>
         </el-menu-item>

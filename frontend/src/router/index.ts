@@ -33,6 +33,17 @@ router.beforeEach((to) => {
   if (to.name === 'login' && auth.isAuthenticated) {
     return { path: '/' }
   }
+  const permissions = to.matched.flatMap((record) => {
+    const metaPermissions = record.meta.permissions
+    const metaPermission = record.meta.permission
+    return [
+      ...(Array.isArray(metaPermissions) ? metaPermissions : []),
+      ...(typeof metaPermission === 'string' ? [metaPermission] : []),
+    ]
+  })
+  if (permissions.length > 0 && !auth.hasAnyPermission(permissions)) {
+    return { path: '/' }
+  }
   return true
 })
 

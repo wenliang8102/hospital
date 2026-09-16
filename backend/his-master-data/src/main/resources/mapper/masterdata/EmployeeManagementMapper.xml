@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.masterdata.persistence.mapper.EmployeeManagementMapper">
+    <sql id="employeeColumns">
+        e.id,
+        e.real_name AS realName,
+        e.department_id AS departmentId,
+        d.dept_name AS departmentName,
+        e.regist_level_id AS registLevelId,
+        r.regist_name AS registLevelName,
+        e.active
+    </sql>
+
+    <sql id="employeeJoins">
+        FROM employee e
+        JOIN department d ON d.id = e.department_id
+        LEFT JOIN regist_level r ON r.id = e.regist_level_id
+    </sql>
+
+    <sql id="filters">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (e.real_name LIKE CONCAT('%', #{keyword}, '%') OR d.dept_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="departmentId != null">AND e.department_id = #{departmentId}</if>
+            <if test="active != null">AND e.active = #{active}</if>
+        </where>
+    </sql>
+
+    <select id="findById" resultType="com.hospital.his.masterdata.persistence.model.EmployeeRow">
+        SELECT <include refid="employeeColumns"/>
+        <include refid="employeeJoins"/>
+        WHERE e.id = #{id}
+    </select>
+
+    <select id="findPage" resultType="com.hospital.his.masterdata.persistence.model.EmployeeRow">
+        SELECT <include refid="employeeColumns"/>
+        <include refid="employeeJoins"/>
+        <include refid="filters"/>
+        ORDER BY e.id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        <include refid="employeeJoins"/>
+        <include refid="filters"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO employee (real_name, department_id, regist_level_id, scheduling_id, active)
+        VALUES (#{realName}, #{departmentId}, #{registLevelId}, #{schedulingId}, #{active})
+    </insert>
+
+    <update id="update">
+        UPDATE employee
+        SET real_name = #{draft.realName},
+            department_id = #{draft.departmentId},
+            regist_level_id = #{draft.registLevelId},
+            scheduling_id = #{draft.schedulingId},
+            active = #{draft.active}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateActive">
+        UPDATE employee SET active = #{active} WHERE id = #{id}
+    </update>
+</mapper>

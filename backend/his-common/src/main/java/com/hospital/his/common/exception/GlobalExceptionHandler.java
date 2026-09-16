@@ -1,13 +1,11 @@
 package com.hospital.his.common.exception;
 
 import com.hospital.his.common.api.ApiResponse;
-import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -18,7 +16,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
-        return ResponseEntity.status(exception.getStatus())
+        return ResponseEntity.status(statusFor(exception.getCode()))
                 .body(ApiResponse.failure(exception.getCode(), exception.getMessage()));
     }
 
@@ -32,27 +30,20 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure("VALIDATION_ERROR", message));
     }
 
-    @ExceptionHandler(HandlerMethodValidationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodValidationException(HandlerMethodValidationException exception) {
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.failure("VALIDATION_ERROR", "请求参数不合法"));
-    }
-
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(
-            ConstraintViolationException exception) {
-        String message = exception.getConstraintViolations().stream()
-                .findFirst()
-                .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
-                .orElse("请求参数不合法");
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.failure("VALIDATION_ERROR", message));
-    }
-
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnexpectedException(Exception exception) {
         log.error("Unhandled server error", exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.failure("INTERNAL_ERROR", "服务器内部错误"));
+    }
+
+    private HttpStatus statusFor(String code) {
+        return switch (code) {
+            case "RESOURCE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "DUPLICATE_RESOURCE", "INVALID_STATE_TRANSITION", "INSUFFICIENT_STOCK" -> HttpStatus.CONFLICT;
+            case "ACCESS_DENIED" -> HttpStatus.FORBIDDEN;
+            case "AUTH_INVALID_CREDENTIALS", "AUTH_TOKEN_EXPIRED" -> HttpStatus.UNAUTHORIZED;
+            default -> HttpStatus.BAD_REQUEST;
+        };
     }
 }

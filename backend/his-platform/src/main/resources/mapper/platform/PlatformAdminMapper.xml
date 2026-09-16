@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.platform.admin.PlatformAdminMapper">
+    <sql id="userColumns">
+        u.id,
+        u.username,
+        u.display_name AS displayName,
+        u.employee_id AS employeeId,
+        e.real_name AS employeeName,
+        u.enabled
+    </sql>
+
+    <sql id="userJoins">
+        FROM sys_user u
+        LEFT JOIN employee e ON e.id = u.employee_id
+    </sql>
+
+    <sql id="userFilters">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (u.username LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.display_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR e.real_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="enabled != null">AND u.enabled = #{enabled}</if>
+        </where>
+    </sql>
+
+    <select id="findRoles" resultType="com.hospital.his.platform.admin.RoleView">
+        SELECT code, name FROM sys_role ORDER BY code
+    </select>
+
+    <select id="countUsers" resultType="long">
+        SELECT COUNT(*)
+        <include refid="userJoins"/>
+        <include refid="userFilters"/>
+    </select>
+
+    <select id="findUsers" resultType="com.hospital.his.platform.admin.UserAccountRow">
+        SELECT <include refid="userColumns"/>
+        <include refid="userJoins"/>
+        <include refid="userFilters"/>
+        ORDER BY u.username
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="findUserById" resultType="com.hospital.his.platform.admin.UserAccountRow">
+        SELECT <include refid="userColumns"/>
+        <include refid="userJoins"/>
+        WHERE u.id = #{id}
+    </select>
+
+    <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_user (username, password_hash, display_name, employee_id, enabled)
+        VALUES (#{username}, #{passwordHash}, #{displayName}, #{employeeId}, #{enabled})
+    </insert>
+
+    <update id="updateUser">
+        UPDATE sys_user
+        SET display_name = #{displayName}, employee_id = #{employeeId}, enabled = #{enabled}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateEnabled">
+        UPDATE sys_user SET enabled = #{enabled} WHERE id = #{id}
+    </update>
+
+    <select id="findRoleIdsByCodes" resultType="long">
+        SELECT id FROM sys_role
+        WHERE code IN
+        <foreach collection="codes" item="code" open="(" separator="," close=")">
+            #{code}
+        </foreach>
+    </select>
+
+    <select id="findRolesByUserIds" resultType="com.hospital.his.platform.admin.RoleAssignmentRow">
+        SELECT user_role.user_id AS userId, role.code AS roleCode, role.name AS roleName
+        FROM sys_user_role user_role
+        JOIN sys_role role ON role.id = user_role.role_id
+        WHERE user_role.user_id IN
+        <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+            #{userId}
+        </foreach>
+        ORDER BY user_role.user_id, role.code
+    </select>
+
+    <delete id="deleteUserRoles">
+        DELETE FROM sys_user_role WHERE user_id = #{userId}
+    </delete>
+
+    <insert id="insertUserRole">
+        INSERT INTO sys_user_role (user_id, role_id) VALUES (#{userId}, #{roleId})
+    </insert>
+</mapper>

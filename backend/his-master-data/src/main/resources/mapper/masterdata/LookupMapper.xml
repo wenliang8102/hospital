@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.masterdata.persistence.mapper.LookupMapper">
+    <select id="findEmployees" resultType="com.hospital.his.masterdata.persistence.model.EmployeeRow">
+        SELECT
+            e.id,
+            e.real_name AS realName,
+            e.department_id AS departmentId,
+            d.dept_name AS departmentName,
+            e.regist_level_id AS registLevelId,
+            r.regist_name AS registLevelName,
+            e.active
+        FROM employee e
+        JOIN department d ON d.id = e.department_id
+        LEFT JOIN regist_level r ON r.id = e.regist_level_id
+        WHERE e.active = TRUE
+        <if test="departmentId != null">AND e.department_id = #{departmentId}</if>
+        <if test="keyword != null and keyword != ''">
+            AND (e.real_name LIKE CONCAT('%', #{keyword}, '%') OR d.dept_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY e.id
+    </select>
+
+    <select id="countRegistLevels" resultType="long">
+        SELECT COUNT(*) FROM regist_level
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (regist_code LIKE CONCAT('%', #{keyword}, '%') OR regist_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+    </select>
+
+    <select id="findRegistLevels" resultType="com.hospital.his.masterdata.persistence.model.DictionaryRow">
+        SELECT id, regist_code AS code, regist_name AS name, active
+        FROM regist_level
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (regist_code LIKE CONCAT('%', #{keyword}, '%') OR regist_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY sequence_no, regist_code
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countSettleCategories" resultType="long">
+        SELECT COUNT(*) FROM settle_category
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (settle_code LIKE CONCAT('%', #{keyword}, '%') OR settle_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+    </select>
+
+    <select id="findSettleCategories" resultType="com.hospital.his.masterdata.persistence.model.DictionaryRow">
+        SELECT id, settle_code AS code, settle_name AS name, active
+        FROM settle_category
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (settle_code LIKE CONCAT('%', #{keyword}, '%') OR settle_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY sequence_no, settle_code
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countDiseases" resultType="long">
+        SELECT COUNT(*) FROM disease
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (
+                disease_code LIKE CONCAT('%', #{keyword}, '%')
+                OR disease_name LIKE CONCAT('%', #{keyword}, '%')
+                OR disease_icd LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </select>
+
+    <select id="findDiseases" resultType="com.hospital.his.masterdata.persistence.model.DiseaseRow">
+        SELECT
+            id,
+            disease_code AS code,
+            disease_name AS name,
+            disease_icd AS icd,
+            disease_category AS category,
+            active
+        FROM disease
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (
+                disease_code LIKE CONCAT('%', #{keyword}, '%')
+                OR disease_name LIKE CONCAT('%', #{keyword}, '%')
+                OR disease_icd LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        ORDER BY disease_code
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countDrugs" resultType="long">
+        SELECT COUNT(*) FROM drug_info
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (
+                drug_code LIKE CONCAT('%', #{keyword}, '%')
+                OR drug_name LIKE CONCAT('%', #{keyword}, '%')
+                OR mnemonic_code LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </select>
+
+    <select id="findDrugs" resultType="com.hospital.his.masterdata.persistence.model.DrugRow">
+        SELECT
+            id,
+            drug_code AS code,
+            drug_name AS name,
+            drug_format AS format,
+            drug_unit AS unit,
+            manufacturer,
+            drug_dosage AS dosage,
+            drug_type AS type,
+            drug_price AS price,
+            mnemonic_code AS mnemonicCode,
+            active
+        FROM drug_info
+        WHERE active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (
+                drug_code LIKE CONCAT('%', #{keyword}, '%')
+                OR drug_name LIKE CONCAT('%', #{keyword}, '%')
+                OR mnemonic_code LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        ORDER BY drug_code
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countMedicalTechnologies" resultType="long">
+        SELECT COUNT(*) FROM medical_technology mt
+        WHERE mt.active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (mt.tech_code LIKE CONCAT('%', #{keyword}, '%') OR mt.tech_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+    </select>
+
+    <select id="findMedicalTechnologies" resultType="com.hospital.his.masterdata.persistence.model.MedicalTechnologyRow">
+        SELECT
+            mt.id,
+            mt.tech_code AS code,
+            mt.tech_name AS name,
+            mt.tech_format AS format,
+            mt.tech_price AS price,
+            mt.tech_type AS type,
+            mt.price_type AS priceType,
+            mt.department_id AS departmentId,
+            d.dept_name AS departmentName,
+            mt.active
+        FROM medical_technology mt
+        JOIN department d ON d.id = mt.department_id
+        WHERE mt.active = TRUE
+        <if test="keyword != null and keyword != ''">
+            AND (mt.tech_code LIKE CONCAT('%', #{keyword}, '%') OR mt.tech_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY mt.tech_code
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+</mapper>

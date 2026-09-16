@@ -93,7 +93,7 @@ class HisApplicationTests {
     void validatesLoginRequestBeforeAuthentication() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType("application/json")
-                        .content("{\"username\":\"a\",\"password\":\"short\"}"))
+                        .content("{\"username\":\"a\",\"password\":\"1234\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));

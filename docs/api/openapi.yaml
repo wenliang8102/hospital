@@ -480,7 +480,7 @@ components:
       required: [username, password]
       properties:
         username: { type: string, minLength: 3, maxLength: 64 }
-        password: { type: string, minLength: 8, maxLength: 128, format: password }
+        password: { type: string, minLength: 5, maxLength: 128, format: password }
     LoginResponse:
       type: object
       required: [accessToken, tokenType, expiresIn, user]

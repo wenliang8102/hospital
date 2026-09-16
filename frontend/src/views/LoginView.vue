@@ -10,7 +10,7 @@ const loading = ref(false)
 const form = reactive({ username: '', password: '' })
 const rules: FormRules = {
   username: [{ required: true, min: 3, max: 64, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, min: 8, max: 128, message: '密码至少 8 位', trigger: 'blur' }],
+  password: [{ required: true, min: 5, max: 128, message: '密码至少 5 位', trigger: 'blur' }],
 }
 const auth = useAuthStore()
 const route = useRoute()

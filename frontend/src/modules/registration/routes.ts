@@ -4,9 +4,7 @@ export const registrationRoutes: RouteRecordRaw[] = [
   {
     path: 'registration',
     name: 'registration',
-    component: () => import('@/components/ModuleWorkspace.vue'),
-    props: { moduleCode: 'registration', title: '挂号收费', accent: '#0f766e' },
+    component: () => import('./views/RegistrationView.vue'),
     meta: { title: '挂号收费' },
   },
 ]
-

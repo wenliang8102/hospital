@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.masterdata.persistence.mapper.RegistrationLookupMapper">
+    <select id="findDepartments" resultType="com.hospital.his.masterdata.persistence.model.DepartmentOption">
+        SELECT id, dept_code AS code, dept_name AS name, dept_type AS type
+        FROM department
+        WHERE active = TRUE AND dept_type = 'OUTPATIENT'
+        <if test="keyword != null and keyword != ''">
+            AND (dept_code LIKE CONCAT('%', #{keyword}, '%') OR dept_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY dept_code
+    </select>
+
+    <select id="findEmployees" resultType="com.hospital.his.masterdata.persistence.model.EmployeeOption">
+        SELECT e.id, e.real_name AS name, e.department_id,
+               e.regist_level_id AS registration_level_id,
+               rl.regist_name AS registration_level_name,
+               rl.regist_fee AS registration_fee
+        FROM employee e
+        JOIN department d ON d.id = e.department_id AND d.active = TRUE
+        JOIN regist_level rl ON rl.id = e.regist_level_id AND rl.active = TRUE
+        WHERE e.active = TRUE
+        <if test="departmentId != null">AND e.department_id = #{departmentId}</if>
+        <if test="keyword != null and keyword != ''">AND e.real_name LIKE CONCAT('%', #{keyword}, '%')</if>
+        ORDER BY e.real_name
+    </select>
+
+    <select id="findRegistrationLevels" resultType="com.hospital.his.masterdata.persistence.model.RegistrationLevelOption">
+        SELECT id, regist_code AS code, regist_name AS name, regist_fee AS fee, regist_quota AS quota
+        FROM regist_level WHERE active = TRUE ORDER BY sequence_no, id
+    </select>
+
+    <select id="findSettlementCategories" resultType="com.hospital.his.masterdata.persistence.model.SettlementCategoryOption">
+        SELECT id, settle_code AS code, settle_name AS name
+        FROM settle_category WHERE active = TRUE ORDER BY sequence_no, id
+    </select>
+</mapper>

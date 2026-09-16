@@ -1,11 +1,13 @@
 package com.hospital.his.common.exception;
 
 import com.hospital.his.common.api.ApiResponse;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -16,7 +18,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
-        return ResponseEntity.badRequest()
+        return ResponseEntity.status(exception.getStatus())
                 .body(ApiResponse.failure(exception.getCode(), exception.getMessage()));
     }
 
@@ -25,6 +27,23 @@ public class GlobalExceptionHandler {
         String message = exception.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .orElse("请求参数不合法");
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.failure("VALIDATION_ERROR", message));
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodValidationException(HandlerMethodValidationException exception) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.failure("VALIDATION_ERROR", "请求参数不合法"));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(
+            ConstraintViolationException exception) {
+        String message = exception.getConstraintViolations().stream()
+                .findFirst()
+                .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
                 .orElse("请求参数不合法");
         return ResponseEntity.badRequest()
                 .body(ApiResponse.failure("VALIDATION_ERROR", message));

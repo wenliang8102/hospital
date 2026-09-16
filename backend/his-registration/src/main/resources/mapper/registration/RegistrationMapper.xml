@@ -2,20 +2,115 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.hospital.his.registration.persistence.mapper.RegistrationMapper">
     <sql id="summaryColumns">
-        id, case_number, real_name, visit_date, department_id, employee_id,
-        visit_state, regist_money AS registration_fee
+        r.id, r.request_no, r.case_number, r.real_name, r.gender, r.card_number, r.birthday,
+        r.age, r.age_type, r.home_address, r.visit_date, r.noon,
+        r.department_id, d.dept_name AS department_name,
+        r.employee_id, e.real_name AS employee_name,
+        r.regist_level_id AS registration_level_id, rl.regist_name AS registration_level_name,
+        r.settle_category_id AS settlement_category_id, sc.settle_name AS settlement_category_name,
+        r.is_book AS booked, r.regist_method AS registration_method,
+        r.visit_state, r.regist_money AS registration_fee, r.created_at
+    </sql>
+
+    <sql id="registrationFrom">
+        FROM `register` r
+        JOIN department d ON d.id = r.department_id
+        JOIN employee e ON e.id = r.employee_id
+        JOIN regist_level rl ON rl.id = r.regist_level_id
+        JOIN settle_category sc ON sc.id = r.settle_category_id
     </sql>
 
     <select id="findById" resultType="com.hospital.his.registration.persistence.model.RegistrationRow">
-        SELECT <include refid="summaryColumns"/> FROM `register` WHERE id = #{id}
+        SELECT <include refid="summaryColumns"/> <include refid="registrationFrom"/> WHERE r.id = #{id}
     </select>
 
+    <select id="findByRequestNo" resultType="com.hospital.his.registration.persistence.model.RegistrationRow">
+        SELECT <include refid="summaryColumns"/> <include refid="registrationFrom"/> WHERE r.request_no = #{requestNo}
+    </select>
+
+    <select id="lockRegistrationReference" resultType="com.hospital.his.registration.persistence.model.RegistrationReferenceRow">
+        SELECT e.id AS employee_id, e.department_id, e.regist_level_id AS registration_level_id,
+               d.dept_name AS department_name, e.real_name AS employee_name,
+               rl.regist_name AS registration_level_name, rl.regist_fee AS registration_fee,
+               rl.regist_quota AS registration_quota
+        FROM employee e
+        JOIN department d ON d.id = e.department_id AND d.active = TRUE
+        JOIN regist_level rl ON rl.id = e.regist_level_id AND rl.active = TRUE
+        WHERE e.id = #{employeeId} AND e.active = TRUE
+        FOR UPDATE
+    </select>
+
+    <select id="existsActiveSettlementCategory" resultType="boolean">
+        SELECT CASE WHEN COUNT(*) &gt; 0 THEN TRUE ELSE FALSE END
+        FROM settle_category WHERE id = #{settlementCategoryId} AND active = TRUE
+    </select>
+
+    <select id="countOccupiedSlot" resultType="long">
+        SELECT COUNT(*) FROM `register`
+        WHERE employee_id = #{employeeId}
+          AND visit_date &gt;= #{visitStart}
+          AND visit_date &lt; #{visitEnd}
+          AND noon = #{noon}
+          AND visit_state != 'CANCELLED'
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO `register` (
+            request_no, case_number, real_name, gender, card_number, birthday, age, age_type,
+            home_address, visit_date, noon, department_id, employee_id, regist_level_id,
+            settle_category_id, is_book, regist_method, visit_state, regist_money
+        ) VALUES (
+            #{requestNo}, #{caseNumber}, #{realName}, #{gender}, #{cardNumber}, #{birthday}, #{age}, #{ageType},
+            #{homeAddress}, #{visitDate}, #{noon}, #{departmentId}, #{employeeId}, #{registrationLevelId},
+            #{settlementCategoryId}, #{booked}, #{registrationMethod}, 'REGISTERED', #{registrationFee}
+        )
+    </insert>
+
+    <insert id="insertRegistrationCharge">
+        INSERT INTO charge_item (
+            register_id, item_type, source_id, item_name, unit_price, quantity, total_amount, state
+        ) VALUES (
+            #{registrationId}, 'REGISTRATION', #{registrationId}, #{itemName}, #{amount}, 1, #{amount}, 'UNPAID'
+        )
+    </insert>
+
     <select id="findByCaseNumber" resultType="com.hospital.his.registration.persistence.model.RegistrationRow">
-        SELECT <include refid="summaryColumns"/> FROM `register`
-        WHERE case_number = #{caseNumber}
-        ORDER BY visit_date DESC
+        SELECT <include refid="summaryColumns"/> <include refid="registrationFrom"/>
+        WHERE r.case_number = #{caseNumber}
+        ORDER BY r.visit_date DESC
         LIMIT #{limit}
     </select>
+
+    <sql id="searchFilters">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (r.case_number LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.real_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.card_number LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="state != null and state != ''">AND r.visit_state = #{state}</if>
+        </where>
+    </sql>
+
+    <select id="search" resultType="com.hospital.his.registration.persistence.model.RegistrationRow">
+        SELECT <include refid="summaryColumns"/> <include refid="registrationFrom"/>
+        <include refid="searchFilters"/>
+        ORDER BY r.created_at DESC, r.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) <include refid="registrationFrom"/> <include refid="searchFilters"/>
+    </select>
+
+    <select id="countPaidChargeItems" resultType="long">
+        SELECT COUNT(*) FROM charge_item WHERE register_id = #{registrationId} AND state = 'PAID'
+    </select>
+
+    <update id="voidUnpaidChargeItems">
+        UPDATE charge_item SET state = 'VOID'
+        WHERE register_id = #{registrationId} AND state = 'UNPAID'
+    </update>
 
     <update id="transitionState">
         UPDATE `register` SET visit_state = #{targetState}

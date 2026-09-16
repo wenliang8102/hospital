@@ -100,6 +100,7 @@ UNPAID -> PAID -> REFUNDED
 | `ACCESS_DENIED` | 403 | 当前角色无权限 |
 | `RESOURCE_NOT_FOUND` | 404 | 业务对象不存在 |
 | `DUPLICATE_RESOURCE` | 409 | 编码、流水号等唯一值重复 |
+| `REGISTRATION_QUOTA_EXCEEDED` | 409 | 医生指定日期和午别的号额已满 |
 | `INSUFFICIENT_STOCK` | 409 | 药品库存不足 |
 | `INTERNAL_ERROR` | 500 | 未预期的服务端错误 |
 
@@ -109,4 +110,4 @@ UNPAID -> PAID -> REFUNDED
 - 收费和退款以交易流水号保证幂等。
 - 医技申请、处方和挂号状态更新必须同时校验当前状态，避免重复执行。
 - 病历以 `register_id` 唯一，一次就诊只有一份病历首页。
-
+- 挂号请求使用客户端生成的 `requestId` 保证重复提交幂等；医生记录加锁后再校验日期、午别号额。

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.outpatient.persistence.mapper.MedicalRecordMapper">
+    <sql id="columns">
+        id, register_id AS registration_id, chief_complaint, present_illness, present_treatment,
+        past_history, allergy_history, physical_examination, examination_proposal, precaution,
+        diagnosis, treatment_plan, created_at, updated_at
+    </sql>
+
+    <select id="findByRegistrationId" resultType="com.hospital.his.outpatient.persistence.model.MedicalRecordRow">
+        SELECT <include refid="columns"/> FROM medical_record WHERE register_id = #{registrationId}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO medical_record (
+            register_id, chief_complaint, present_illness, present_treatment, past_history,
+            allergy_history, physical_examination, examination_proposal, precaution, diagnosis, treatment_plan
+        ) VALUES (
+            #{registrationId}, #{chiefComplaint}, #{presentIllness}, #{presentTreatment}, #{pastHistory},
+            #{allergyHistory}, #{physicalExamination}, #{examinationProposal}, #{precaution}, #{diagnosis}, #{treatmentPlan}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE medical_record SET
+            chief_complaint = #{chiefComplaint}, present_illness = #{presentIllness},
+            present_treatment = #{presentTreatment}, past_history = #{pastHistory},
+            allergy_history = #{allergyHistory}, physical_examination = #{physicalExamination},
+            examination_proposal = #{examinationProposal}, precaution = #{precaution},
+            diagnosis = #{diagnosis}, treatment_plan = #{treatmentPlan}
+        WHERE register_id = #{registrationId}
+    </update>
+</mapper>

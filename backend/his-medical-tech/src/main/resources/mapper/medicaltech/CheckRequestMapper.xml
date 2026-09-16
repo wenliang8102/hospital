@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.medicaltech.persistence.mapper.CheckRequestMapper">
+    <sql id="columns">
+        id, register_id AS registration_id, medical_technology_id, request_info, body_position,
+        executor_employee_id, result_employee_id, executed_at, result, state, remark, created_at
+    </sql>
+
+    <select id="findById" resultType="com.hospital.his.medicaltech.persistence.model.CheckRequestRow">
+        SELECT <include refid="columns"/> FROM check_request WHERE id = #{id}
+    </select>
+
+    <select id="findQueue" resultType="com.hospital.his.medicaltech.persistence.model.CheckRequestRow">
+        SELECT <include refid="columns"/> FROM check_request
+        WHERE state = #{state}
+        ORDER BY created_at, id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <update id="accept">
+        UPDATE check_request
+        SET state = 'ACCEPTED', executor_employee_id = #{executorEmployeeId}
+        WHERE id = #{id} AND state = 'PAID'
+    </update>
+
+    <update id="markExecuted">
+        UPDATE check_request
+        SET state = 'EXECUTED', executed_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND state = 'ACCEPTED'
+    </update>
+
+    <update id="reportResult">
+        UPDATE check_request
+        SET state = 'RESULT_REPORTED', result_employee_id = #{resultEmployeeId},
+            result = #{result}, remark = #{remark}
+        WHERE id = #{id} AND state = 'EXECUTED'
+    </update>
+</mapper>

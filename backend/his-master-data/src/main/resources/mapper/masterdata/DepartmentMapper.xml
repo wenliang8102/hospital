@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.masterdata.persistence.mapper.DepartmentMapper">
+    <sql id="departmentColumns">
+        id, dept_code AS code, dept_name AS name, dept_type AS type, active
+    </sql>
+
+    <sql id="filters">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (dept_code LIKE CONCAT('%', #{keyword}, '%') OR dept_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="type != null and type != ''">AND dept_type = #{type}</if>
+            <if test="active != null">AND active = #{active}</if>
+        </where>
+    </sql>
+
+    <select id="findById" resultType="com.hospital.his.masterdata.persistence.model.DepartmentRow">
+        SELECT <include refid="departmentColumns"/> FROM department WHERE id = #{id}
+    </select>
+
+    <select id="findPage" resultType="com.hospital.his.masterdata.persistence.model.DepartmentRow">
+        SELECT <include refid="departmentColumns"/> FROM department
+        <include refid="filters"/>
+        ORDER BY dept_code
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM department <include refid="filters"/>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO department (dept_code, dept_name, dept_type, active)
+        VALUES (#{code}, #{name}, #{type}, #{active})
+    </insert>
+
+    <update id="update">
+        UPDATE department
+        SET dept_code = #{draft.code}, dept_name = #{draft.name}, dept_type = #{draft.type}, active = #{draft.active}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateActive">
+        UPDATE department SET active = #{active} WHERE id = #{id}
+    </update>
+</mapper>

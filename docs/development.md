@@ -52,6 +52,35 @@
 - 日期时间使用 ISO 8601 字符串，数据库统一按 `Asia/Shanghai` 解释。
 - 状态流转在后端校验，前端隐藏按钮不能代替权限或状态检查。
 
+## 持久层约定
+
+每个业务模块使用相同目录结构：
+
+```text
+src/main/java/com/hospital/his/<module>/persistence/
+├── mapper/                    # MyBatis Mapper 接口，只在所属模块内使用
+└── model/                     # 数据库行映射和写入参数，不作为 API DTO
+src/main/resources/mapper/<module>/
+└── *Mapper.xml                # 查询、写入及状态条件 SQL
+```
+
+- 查询结果命名为 `*Row`，写入参数命名为 `*Draft`；API 请求和领域对象不得直接复用持久化模型。
+- Mapper 接口使用 `Optional<T>` 表示单条可空结果，写操作返回受影响行数。
+- 分页统一使用 `PageQuery` 和 `PageResult`，SQL 使用 `LIMIT`、`OFFSET`，列表查询必须有稳定排序。
+- 新增记录需要回传主键时，`*Draft` 使用可写的 `id` 并配置 `useGeneratedKeys`。
+- 状态流转 SQL 必须在 `WHERE` 中带当前状态，影响行数为 `0` 时由应用服务返回 `INVALID_STATE_TRANSITION`。
+- 库存等高并发数据必须带版本条件，并在同一事务中写业务数据和流水。
+- XML 中不得使用 `${}` 拼接用户输入。动态排序、表名等只能从后端固定白名单选择。
+- 应用服务负责 `@Transactional` 边界，Controller 不直接注入 Mapper。
+
+当前可复制的参考实现：
+
+- `DepartmentMapper`：CRUD、动态筛选、分页和生成主键。
+- `RegistrationMapper`：按旧状态更新挂号状态。
+- `MedicalRecordMapper`：按一次就诊保存和更新病历。
+- `CheckRequestMapper`：医技队列和条件状态流转。
+- `DrugStockMapper`：库存非负校验与乐观锁。
+
 ## 提交前检查
 
 ```powershell

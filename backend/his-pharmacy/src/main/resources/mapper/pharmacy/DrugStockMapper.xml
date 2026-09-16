@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.pharmacy.persistence.mapper.DrugStockMapper">
+    <select id="findByDrugId" resultType="com.hospital.his.pharmacy.persistence.model.DrugStockRow">
+        SELECT drug_id, quantity, version, updated_at FROM drug_stock WHERE drug_id = #{drugId}
+    </select>
+
+    <update id="changeQuantity">
+        UPDATE drug_stock
+        SET quantity = quantity + #{quantityDelta}, version = version + 1
+        WHERE drug_id = #{drugId}
+          AND version = #{expectedVersion}
+          AND quantity + #{quantityDelta} &gt;= 0
+    </update>
+
+    <insert id="insertTransaction">
+        INSERT INTO drug_stock_transaction (
+            drug_id, prescription_id, transaction_type, quantity,
+            quantity_before, quantity_after, operator_user_id
+        ) VALUES (
+            #{drugId}, #{prescriptionId}, #{transactionType}, #{quantity},
+            #{quantityBefore}, #{quantityAfter}, #{operatorUserId}
+        )
+    </insert>
+</mapper>

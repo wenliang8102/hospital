@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.pharmacy.persistence.mapper.PrescriptionMapper">
+    <sql id="columns">
+        prescription.id,
+        prescription.register_id AS registration_id,
+        prescription.drug_id,
+        prescription.drug_usage,
+        prescription.drug_number,
+        prescription.state,
+        prescription.created_at,
+        prescription.dispensed_at,
+        prescription.dispensed_by,
+        drug_stock.quantity AS stock_quantity
+    </sql>
+
+    <sql id="queueFilters">
+        WHERE prescription.state = #{state}
+        <if test="keywordId != null">
+            AND (
+                prescription.id = #{keywordId}
+                OR prescription.register_id = #{keywordId}
+                OR prescription.drug_id = #{keywordId}
+            )
+        </if>
+    </sql>
+
+    <select id="findById" resultType="com.hospital.his.pharmacy.persistence.model.PrescriptionRow">
+        SELECT <include refid="columns"/>
+        FROM prescription
+        LEFT JOIN drug_stock ON drug_stock.drug_id = prescription.drug_id
+        WHERE prescription.id = #{id}
+    </select>
+
+    <select id="findQueue" resultType="com.hospital.his.pharmacy.persistence.model.PrescriptionRow">
+        SELECT <include refid="columns"/>
+        FROM prescription
+        LEFT JOIN drug_stock ON drug_stock.drug_id = prescription.drug_id
+        <include refid="queueFilters"/>
+        ORDER BY prescription.created_at, prescription.id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countQueue" resultType="long">
+        SELECT COUNT(*)
+        FROM prescription
+        <include refid="queueFilters"/>
+    </select>
+
+    <update id="markDispensed">
+        UPDATE prescription
+        SET state = 'DISPENSED',
+            dispensed_at = CURRENT_TIMESTAMP,
+            dispensed_by = #{dispensedBy}
+        WHERE id = #{id} AND state = 'PAID'
+    </update>
+
+    <update id="markReturned">
+        UPDATE prescription
+        SET state = 'RETURNED'
+        WHERE id = #{id} AND state = 'DISPENSED'
+    </update>
+</mapper>

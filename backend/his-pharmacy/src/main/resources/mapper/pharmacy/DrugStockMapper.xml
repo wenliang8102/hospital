@@ -5,12 +5,76 @@
         SELECT drug_id, quantity, version, updated_at FROM drug_stock WHERE drug_id = #{drugId}
     </select>
 
+    <sql id="stockColumns">
+        drug_id, quantity, version, updated_at
+    </sql>
+
+    <sql id="stockFilters">
+        <where>
+            <if test="keywordId != null">AND drug_id = #{keywordId}</if>
+            <if test="maxQuantity != null">AND quantity &lt;= #{maxQuantity}</if>
+        </where>
+    </sql>
+
+    <select id="findStocks" resultType="com.hospital.his.pharmacy.persistence.model.DrugStockRow">
+        SELECT <include refid="stockColumns"/>
+        FROM drug_stock
+        <include refid="stockFilters"/>
+        ORDER BY quantity ASC, drug_id ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countStocks" resultType="long">
+        SELECT COUNT(*)
+        FROM drug_stock
+        <include refid="stockFilters"/>
+    </select>
+
+    <sql id="transactionColumns">
+        id, drug_id, prescription_id, transaction_type, quantity,
+        quantity_before, quantity_after, operator_user_id, created_at
+    </sql>
+
+    <sql id="transactionFilters">
+        <where>
+            <if test="drugId != null">AND drug_id = #{drugId}</if>
+            <if test="prescriptionId != null">AND prescription_id = #{prescriptionId}</if>
+        </where>
+    </sql>
+
+    <select id="findTransactions" resultType="com.hospital.his.pharmacy.persistence.model.DrugStockTransactionRow">
+        SELECT <include refid="transactionColumns"/>
+        FROM drug_stock_transaction
+        <include refid="transactionFilters"/>
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countTransactions" resultType="long">
+        SELECT COUNT(*)
+        FROM drug_stock_transaction
+        <include refid="transactionFilters"/>
+    </select>
+
+    <insert id="insertStock">
+        INSERT INTO drug_stock (drug_id, quantity, version)
+        VALUES (#{drugId}, #{quantity}, 0)
+    </insert>
+
     <update id="changeQuantity">
         UPDATE drug_stock
         SET quantity = quantity + #{quantityDelta}, version = version + 1
         WHERE drug_id = #{drugId}
           AND version = #{expectedVersion}
           AND quantity + #{quantityDelta} &gt;= 0
+    </update>
+
+    <update id="setQuantity">
+        UPDATE drug_stock
+        SET quantity = #{quantity}, version = version + 1
+        WHERE drug_id = #{drugId}
+          AND version = #{expectedVersion}
+          AND #{quantity} &gt;= 0
     </update>
 
     <insert id="insertTransaction">

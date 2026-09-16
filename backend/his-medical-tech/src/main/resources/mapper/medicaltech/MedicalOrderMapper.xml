@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hospital.his.medicaltech.persistence.mapper.MedicalOrderMapper">
+    <sql id="columns">
+        id, register_id AS registration_id, medical_technology_id, request_info, body_position,
+        executor_employee_id, result_employee_id, executed_at, result, state, remark, created_at
+    </sql>
+
+    <sql id="orderFilters">
+        WHERE 1 = 1
+        <if test="state != null">
+            AND state = #{state}
+        </if>
+        <if test="keywordId != null">
+            AND (
+                id = #{keywordId}
+                OR register_id = #{keywordId}
+                OR medical_technology_id = #{keywordId}
+            )
+        </if>
+    </sql>
+
+    <select id="findCheckById" resultType="com.hospital.his.medicaltech.persistence.model.MedicalOrderRow">
+        SELECT <include refid="columns"/> FROM check_request WHERE id = #{id}
+    </select>
+
+    <select id="findInspectionById" resultType="com.hospital.his.medicaltech.persistence.model.MedicalOrderRow">
+        SELECT <include refid="columns"/> FROM inspection_request WHERE id = #{id}
+    </select>
+
+    <select id="findDisposalById" resultType="com.hospital.his.medicaltech.persistence.model.MedicalOrderRow">
+        SELECT <include refid="columns"/> FROM disposal_request WHERE id = #{id}
+    </select>
+
+    <select id="findCheckOrders" resultType="com.hospital.his.medicaltech.persistence.model.MedicalOrderRow">
+        SELECT <include refid="columns"/> FROM check_request
+        <include refid="orderFilters"/>
+        ORDER BY created_at, id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="findInspectionOrders" resultType="com.hospital.his.medicaltech.persistence.model.MedicalOrderRow">
+        SELECT <include refid="columns"/> FROM inspection_request
+        <include refid="orderFilters"/>
+        ORDER BY created_at, id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="findDisposalOrders" resultType="com.hospital.his.medicaltech.persistence.model.MedicalOrderRow">
+        SELECT <include refid="columns"/> FROM disposal_request
+        <include refid="orderFilters"/>
+        ORDER BY created_at, id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countCheckOrders" resultType="long">
+        SELECT COUNT(*) FROM check_request
+        <include refid="orderFilters"/>
+    </select>
+
+    <select id="countInspectionOrders" resultType="long">
+        SELECT COUNT(*) FROM inspection_request
+        <include refid="orderFilters"/>
+    </select>
+
+    <select id="countDisposalOrders" resultType="long">
+        SELECT COUNT(*) FROM disposal_request
+        <include refid="orderFilters"/>
+    </select>
+
+    <update id="acceptCheck">
+        UPDATE check_request
+        SET state = 'ACCEPTED', executor_employee_id = #{executorEmployeeId}
+        WHERE id = #{id} AND state = 'PAID'
+    </update>
+
+    <update id="acceptInspection">
+        UPDATE inspection_request
+        SET state = 'ACCEPTED', executor_employee_id = #{executorEmployeeId}
+        WHERE id = #{id} AND state = 'PAID'
+    </update>
+
+    <update id="acceptDisposal">
+        UPDATE disposal_request
+        SET state = 'ACCEPTED', executor_employee_id = #{executorEmployeeId}
+        WHERE id = #{id} AND state = 'PAID'
+    </update>
+
+    <update id="executeCheck">
+        UPDATE check_request
+        SET state = 'EXECUTED', executed_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND state = 'ACCEPTED'
+    </update>
+
+    <update id="executeInspection">
+        UPDATE inspection_request
+        SET state = 'EXECUTED', executed_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND state = 'ACCEPTED'
+    </update>
+
+    <update id="executeDisposal">
+        UPDATE disposal_request
+        SET state = 'EXECUTED', executed_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND state = 'ACCEPTED'
+    </update>
+
+    <update id="reportCheckResult">
+        UPDATE check_request
+        SET state = 'RESULT_REPORTED', result_employee_id = #{resultEmployeeId},
+            result = #{result}, remark = #{remark}
+        WHERE id = #{id} AND state = 'EXECUTED'
+    </update>
+
+    <update id="reportInspectionResult">
+        UPDATE inspection_request
+        SET state = 'RESULT_REPORTED', result_employee_id = #{resultEmployeeId},
+            result = #{result}, remark = #{remark}
+        WHERE id = #{id} AND state = 'EXECUTED'
+    </update>
+
+    <update id="reportDisposalResult">
+        UPDATE disposal_request
+        SET state = 'RESULT_REPORTED', result_employee_id = #{resultEmployeeId},
+            result = #{result}, remark = #{remark}
+        WHERE id = #{id} AND state = 'EXECUTED'
+    </update>
+</mapper>

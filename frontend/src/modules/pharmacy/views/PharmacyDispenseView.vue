@@ -18,6 +18,10 @@ interface PharmacyPrescription {
   id: number
   registrationId: number
   drugId: number
+  drugCode?: string
+  drugName?: string
+  drugFormat?: string
+  drugUnit?: string
   drugUsage: string
   drugNumber: number
   state: PrescriptionState
@@ -30,6 +34,8 @@ interface PharmacyPrescription {
 interface StockTransaction {
   id: number
   drugId: number
+  drugCode?: string
+  drugName?: string
   prescriptionId?: number
   transactionType: 'DISPENSE' | 'RETURN' | string
   quantity: number
@@ -41,9 +47,21 @@ interface StockTransaction {
 
 interface DrugStock {
   drugId: number
+  drugCode?: string
+  drugName?: string
+  drugFormat?: string
+  drugUnit?: string
   quantity: number
   version: number
   updatedAt: string
+}
+
+interface DrugOption {
+  id: number
+  code: string
+  name: string
+  format: string
+  unit: string
 }
 
 interface ApiErrorPayload {
@@ -75,19 +93,21 @@ const transactionSize = ref(10)
 const transactionTotal = ref(0)
 const transactionLoading = ref(false)
 const stockKeyword = ref('')
-const stockMaxQuantity = ref<number | undefined>(20)
+const stockMaxQuantity = ref<number | undefined>()
 const stockPage = ref(1)
 const stockSize = ref(10)
 const stockTotal = ref(0)
 const stockLoading = ref(false)
 const stockOperationDialogVisible = ref(false)
 const stockOperationSubmitting = ref(false)
+const drugOptionsLoading = ref(false)
 const stockOperationMode = ref<StockOperationMode>('inbound')
 const dispensingId = ref<number | null>(null)
 const returningId = ref<number | null>(null)
 const prescriptions = ref<PharmacyPrescription[]>([])
 const transactions = ref<StockTransaction[]>([])
 const stocks = ref<DrugStock[]>([])
+const drugOptions = ref<DrugOption[]>([])
 const stockOperationForm = reactive<{
   drugId?: number
   quantity?: number
@@ -145,7 +165,7 @@ async function loadStocks() {
     stocks.value = response.data.data.items
     stockTotal.value = response.data.data.total
   } catch (error) {
-    ElMessage.error(errorMessage(error, '低库存数据加载失败'))
+    ElMessage.error(errorMessage(error, '库存数据加载失败'))
   } finally {
     stockLoading.value = false
   }
@@ -157,6 +177,21 @@ function openInboundDialog(row?: DrugStock) {
   stockOperationForm.quantity = undefined
   stockOperationForm.targetQuantity = undefined
   stockOperationDialogVisible.value = true
+  void searchDrugOptions(row?.drugName ?? '')
+}
+
+async function searchDrugOptions(keyword = '') {
+  drugOptionsLoading.value = true
+  try {
+    const response = await http.get<ApiResponse<DrugOption[]>>('/master-data/drugs', {
+      params: { keyword: keyword.trim() || undefined },
+    })
+    drugOptions.value = response.data.data
+  } catch (error) {
+    ElMessage.error(errorMessage(error, '药品数据加载失败'))
+  } finally {
+    drugOptionsLoading.value = false
+  }
 }
 
 function openAdjustmentDialog(row: DrugStock) {
@@ -165,6 +200,7 @@ function openAdjustmentDialog(row: DrugStock) {
   stockOperationForm.quantity = undefined
   stockOperationForm.targetQuantity = row.quantity
   stockOperationDialogVisible.value = true
+  void searchDrugOptions(row.drugName ?? '')
 }
 
 async function submitStockOperation() {
@@ -371,7 +407,7 @@ onMounted(() => {
       <el-input
         v-model="keyword"
         class="keyword-input"
-        placeholder="输入处方号、挂号 ID 或药品 ID"
+        placeholder="处方号、挂号号或药品名称"
         clearable
         @keyup.enter="resetPageAndLoad"
         @clear="resetPageAndLoad"
@@ -396,12 +432,19 @@ onMounted(() => {
       <el-table v-loading="loading" :data="prescriptions" table-layout="fixed" class="pharmacy-table">
         <el-table-column prop="id" label="处方号" width="100" />
         <el-table-column prop="registrationId" label="挂号 ID" width="110" />
-        <el-table-column prop="drugId" label="药品 ID" width="100" />
-        <el-table-column label="用药信息" min-width="240">
+        <el-table-column label="药品" min-width="210">
+          <template #default="{ row }">
+            <div class="prescription-main">
+              <strong>{{ row.drugName ?? `药品 #${row.drugId}` }}</strong>
+              <span>{{ row.drugCode ?? '-' }} · {{ row.drugFormat ?? '-' }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="用药信息" min-width="180">
           <template #default="{ row }">
             <div class="prescription-main">
               <strong>{{ row.drugUsage }}</strong>
-              <span>数量：{{ row.drugNumber }}</span>
+              <span>数量：{{ row.drugNumber }} {{ row.drugUnit ?? '' }}</span>
             </div>
           </template>
         </el-table-column>
@@ -464,8 +507,8 @@ onMounted(() => {
     <section class="pharmacy-panel stock-panel">
       <div class="panel-heading pharmacy-panel-heading">
         <div>
-          <p class="section-kicker">库存预警</p>
-          <h3>低库存药品</h3>
+          <p class="section-kicker">库存管理</p>
+          <h3>药品库存</h3>
         </div>
         <el-tag effect="plain">共 {{ stockTotal }} 条</el-tag>
       </div>
@@ -474,7 +517,7 @@ onMounted(() => {
         <el-input
           v-model="stockKeyword"
           class="filter-input"
-          placeholder="药品 ID"
+          placeholder="编码、名称或助记码"
           clearable
           @keyup.enter="resetStockPageAndLoad"
           @clear="resetStockPageAndLoad"
@@ -485,7 +528,7 @@ onMounted(() => {
           :min="0"
           :max="999999"
           :controls="false"
-          placeholder="预警阈值"
+          placeholder="低库存上限（可不填）"
           @change="resetStockPageAndLoad"
         />
         <el-button type="primary" @click="resetStockPageAndLoad">查询库存</el-button>
@@ -493,7 +536,14 @@ onMounted(() => {
       </div>
 
       <el-table v-loading="stockLoading" :data="stocks" table-layout="fixed" class="pharmacy-table">
-        <el-table-column prop="drugId" label="药品 ID" width="120" />
+        <el-table-column label="药品" min-width="220">
+          <template #default="{ row }">
+            <div class="prescription-main">
+              <strong>{{ row.drugName ?? `药品 #${row.drugId}` }}</strong>
+              <span>{{ row.drugCode ?? '-' }} · {{ row.drugFormat ?? '-' }} / {{ row.drugUnit ?? '-' }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="当前库存" width="120">
           <template #default="{ row }">
             <el-tag :type="stockAlertType(row)" effect="plain">{{ row.quantity }}</el-tag>
@@ -528,15 +578,24 @@ onMounted(() => {
 
     <el-dialog v-model="stockOperationDialogVisible" :title="stockOperationTitle" width="460px">
       <el-form label-position="top">
-        <el-form-item label="药品 ID" required>
-          <el-input-number
+        <el-form-item label="药品" required>
+          <el-select
             v-model="stockOperationForm.drugId"
-            class="form-number-input"
-            :min="1"
-            :max="999999999"
-            :controls="false"
+            class="full-width"
+            filterable
+            remote
+            :remote-method="searchDrugOptions"
+            :loading="drugOptionsLoading"
+            placeholder="输入药品名称、编码或助记码"
             :disabled="stockOperationMode === 'adjust'"
-          />
+          >
+            <el-option
+              v-for="item in drugOptions"
+              :key="item.id"
+              :label="`${item.name}（${item.code}） ${item.format}`"
+              :value="item.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item v-if="stockOperationMode === 'inbound'" label="入库数量" required>
           <el-input-number
@@ -596,7 +655,14 @@ onMounted(() => {
 
       <el-table v-loading="transactionLoading" :data="transactions" table-layout="fixed" class="pharmacy-table">
         <el-table-column prop="id" label="流水号" width="100" />
-        <el-table-column prop="drugId" label="药品 ID" width="100" />
+        <el-table-column label="药品" min-width="190">
+          <template #default="{ row }">
+            <div class="prescription-main">
+              <strong>{{ row.drugName ?? `药品 #${row.drugId}` }}</strong>
+              <span>{{ row.drugCode ?? '-' }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="prescriptionId" label="处方号" width="110" />
         <el-table-column label="类型" width="100">
           <template #default="{ row }">

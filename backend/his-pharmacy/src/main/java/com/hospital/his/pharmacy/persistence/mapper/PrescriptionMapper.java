@@ -13,11 +13,15 @@ public interface PrescriptionMapper {
 
     List<PrescriptionRow> findQueue(
             @Param("state") String state,
+            @Param("keyword") String keyword,
             @Param("keywordId") Long keywordId,
             @Param("offset") long offset,
             @Param("limit") int limit);
 
-    long countQueue(@Param("state") String state, @Param("keywordId") Long keywordId);
+    long countQueue(
+            @Param("state") String state,
+            @Param("keyword") String keyword,
+            @Param("keywordId") Long keywordId);
 
     int markDispensed(@Param("id") Long id, @Param("dispensedBy") Long dispensedBy);
 

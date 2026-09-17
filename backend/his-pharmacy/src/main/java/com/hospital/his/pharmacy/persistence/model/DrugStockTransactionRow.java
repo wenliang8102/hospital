@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 public record DrugStockTransactionRow(
         Long id,
         Long drugId,
+        String drugCode,
+        String drugName,
         Long prescriptionId,
         String transactionType,
         int quantity,

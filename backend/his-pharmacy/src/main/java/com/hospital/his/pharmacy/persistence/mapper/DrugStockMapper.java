@@ -28,12 +28,16 @@ public interface DrugStockMapper {
     int insertTransaction(DrugStockTransactionDraft transaction);
 
     List<DrugStockRow> findStocks(
+            @Param("keyword") String keyword,
             @Param("keywordId") Long keywordId,
             @Param("maxQuantity") Integer maxQuantity,
             @Param("offset") long offset,
             @Param("limit") int limit);
 
-    long countStocks(@Param("keywordId") Long keywordId, @Param("maxQuantity") Integer maxQuantity);
+    long countStocks(
+            @Param("keyword") String keyword,
+            @Param("keywordId") Long keywordId,
+            @Param("maxQuantity") Integer maxQuantity);
 
     List<DrugStockTransactionRow> findTransactions(
             @Param("drugId") Long drugId,

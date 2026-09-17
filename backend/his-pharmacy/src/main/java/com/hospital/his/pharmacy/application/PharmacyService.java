@@ -35,13 +35,14 @@ public class PharmacyService {
     @Transactional(readOnly = true)
     public PageResult<PharmacyPrescriptionResponse> search(String keyword, PrescriptionState state, PageQuery page) {
         PrescriptionState targetState = state == null ? PrescriptionState.PAID : state;
-        Long keywordId = parseKeywordId(keyword);
-        long total = prescriptionMapper.countQueue(targetState.name(), keywordId);
+        String normalizedKeyword = normalizeKeyword(keyword);
+        Long keywordId = parseKeywordId(normalizedKeyword);
+        long total = prescriptionMapper.countQueue(targetState.name(), normalizedKeyword, keywordId);
         if (total == 0) {
             return PageResult.of(List.of(), page, 0);
         }
         List<PharmacyPrescriptionResponse> items = prescriptionMapper
-                .findQueue(targetState.name(), keywordId, page.offset(), page.size())
+                .findQueue(targetState.name(), normalizedKeyword, keywordId, page.offset(), page.size())
                 .stream()
                 .map(PharmacyPrescriptionResponse::from)
                 .toList();
@@ -116,18 +117,16 @@ public class PharmacyService {
 
     @Transactional(readOnly = true)
     public PageResult<DrugStockResponse> searchStocks(String keyword, Integer maxQuantity, PageQuery page) {
-        Long keywordId = parseKeywordId(keyword);
-        if (hasKeyword(keyword) && keywordId == null) {
-            return PageResult.of(List.of(), page, 0);
-        }
+        String normalizedKeyword = normalizeKeyword(keyword);
+        Long keywordId = parseKeywordId(normalizedKeyword);
 
         Integer targetMaxQuantity = maxQuantity == null ? null : Math.max(maxQuantity, 0);
-        long total = stockMapper.countStocks(keywordId, targetMaxQuantity);
+        long total = stockMapper.countStocks(normalizedKeyword, keywordId, targetMaxQuantity);
         if (total == 0) {
             return PageResult.of(List.of(), page, 0);
         }
         List<DrugStockResponse> items = stockMapper
-                .findStocks(keywordId, targetMaxQuantity, page.offset(), page.size())
+                .findStocks(normalizedKeyword, keywordId, targetMaxQuantity, page.offset(), page.size())
                 .stream()
                 .map(DrugStockResponse::from)
                 .toList();
@@ -208,12 +207,12 @@ public class PharmacyService {
         return PageResult.of(items, page, total);
     }
 
-    private boolean hasKeyword(String keyword) {
-        return keyword != null && !keyword.isBlank();
+    private String normalizeKeyword(String keyword) {
+        return keyword == null || keyword.isBlank() ? null : keyword.trim();
     }
 
     private Long parseKeywordId(String keyword) {
-        if (!hasKeyword(keyword)) {
+        if (keyword == null) {
             return null;
         }
         try {

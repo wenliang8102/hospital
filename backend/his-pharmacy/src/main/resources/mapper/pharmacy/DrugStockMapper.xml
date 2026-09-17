@@ -2,57 +2,74 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.hospital.his.pharmacy.persistence.mapper.DrugStockMapper">
     <select id="findByDrugId" resultType="com.hospital.his.pharmacy.persistence.model.DrugStockRow">
-        SELECT drug_id, quantity, version, updated_at FROM drug_stock WHERE drug_id = #{drugId}
+        SELECT stock.drug_id, drug.drug_code, drug.drug_name, drug.drug_format, drug.drug_unit,
+               stock.quantity, stock.version, stock.updated_at
+        FROM drug_stock stock
+        LEFT JOIN drug_info drug ON drug.id = stock.drug_id
+        WHERE stock.drug_id = #{drugId}
     </select>
 
     <sql id="stockColumns">
-        drug_id, quantity, version, updated_at
+        stock.drug_id, drug.drug_code, drug.drug_name, drug.drug_format, drug.drug_unit,
+        stock.quantity, stock.version, stock.updated_at
     </sql>
 
     <sql id="stockFilters">
         <where>
-            <if test="keywordId != null">AND drug_id = #{keywordId}</if>
-            <if test="maxQuantity != null">AND quantity &lt;= #{maxQuantity}</if>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    <if test="keywordId != null">stock.drug_id = #{keywordId} OR</if>
+                    drug.drug_code LIKE CONCAT('%', #{keyword}, '%')
+                    OR drug.drug_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR drug.mnemonic_code LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="maxQuantity != null">AND stock.quantity &lt;= #{maxQuantity}</if>
         </where>
     </sql>
 
     <select id="findStocks" resultType="com.hospital.his.pharmacy.persistence.model.DrugStockRow">
         SELECT <include refid="stockColumns"/>
-        FROM drug_stock
+        FROM drug_stock stock
+        LEFT JOIN drug_info drug ON drug.id = stock.drug_id
         <include refid="stockFilters"/>
-        ORDER BY quantity ASC, drug_id ASC
+        ORDER BY stock.quantity ASC, stock.drug_id ASC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <select id="countStocks" resultType="long">
         SELECT COUNT(*)
-        FROM drug_stock
+        FROM drug_stock stock
+        LEFT JOIN drug_info drug ON drug.id = stock.drug_id
         <include refid="stockFilters"/>
     </select>
 
     <sql id="transactionColumns">
-        id, drug_id, prescription_id, transaction_type, quantity,
-        quantity_before, quantity_after, operator_user_id, created_at
+        tx.id, tx.drug_id, drug.drug_code, drug.drug_name,
+        tx.prescription_id, tx.transaction_type, tx.quantity,
+        tx.quantity_before, tx.quantity_after,
+        tx.operator_user_id, tx.created_at
     </sql>
 
     <sql id="transactionFilters">
         <where>
-            <if test="drugId != null">AND drug_id = #{drugId}</if>
-            <if test="prescriptionId != null">AND prescription_id = #{prescriptionId}</if>
+            <if test="drugId != null">AND tx.drug_id = #{drugId}</if>
+            <if test="prescriptionId != null">AND tx.prescription_id = #{prescriptionId}</if>
         </where>
     </sql>
 
     <select id="findTransactions" resultType="com.hospital.his.pharmacy.persistence.model.DrugStockTransactionRow">
         SELECT <include refid="transactionColumns"/>
-        FROM drug_stock_transaction
+        FROM drug_stock_transaction tx
+        LEFT JOIN drug_info drug ON drug.id = tx.drug_id
         <include refid="transactionFilters"/>
-        ORDER BY created_at DESC, id DESC
+        ORDER BY tx.created_at DESC, tx.id DESC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <select id="countTransactions" resultType="long">
         SELECT COUNT(*)
-        FROM drug_stock_transaction
+        FROM drug_stock_transaction tx
         <include refid="transactionFilters"/>
     </select>
 

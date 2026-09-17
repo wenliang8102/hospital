@@ -701,6 +701,10 @@ class HisApplicationTests {
 
     @Test
     void pharmacyListsLowStocksAndSearchesByDrugId() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO drug_info (id, drug_code, drug_name, drug_format, drug_unit, drug_price, mnemonic_code)
+                VALUES (30, 'AMXL', '阿莫西林胶囊', '0.25g*24粒', '盒', 12.50, 'AMXL')
+                """);
         jdbcTemplate.update("INSERT INTO drug_stock (drug_id, quantity, version) VALUES (30, 0, 2)");
         jdbcTemplate.update("INSERT INTO drug_stock (drug_id, quantity, version) VALUES (31, 5, 1)");
         jdbcTemplate.update("INSERT INTO drug_stock (drug_id, quantity, version) VALUES (32, 25, 0)");
@@ -711,6 +715,8 @@ class HisApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.items[0].drugId").value(30))
+                .andExpect(jsonPath("$.data.items[0].drugCode").value("AMXL"))
+                .andExpect(jsonPath("$.data.items[0].drugName").value("阿莫西林胶囊"))
                 .andExpect(jsonPath("$.data.items[0].quantity").value(0))
                 .andExpect(jsonPath("$.data.items[1].drugId").value(31))
                 .andExpect(jsonPath("$.data.items[1].quantity").value(5));
@@ -722,6 +728,13 @@ class HisApplicationTests {
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].drugId").value(32))
                 .andExpect(jsonPath("$.data.items[0].quantity").value(25));
+
+        mockMvc.perform(get("/api/pharmacy/stocks")
+                        .param("keyword", "阿莫西林")
+                        .with(executionJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].drugId").value(30));
 
         mockMvc.perform(get("/api/pharmacy/stocks")
                         .param("keyword", "ABC")

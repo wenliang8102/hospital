@@ -5,6 +5,10 @@
         prescription.id,
         prescription.register_id AS registration_id,
         prescription.drug_id,
+        drug.drug_code,
+        drug.drug_name,
+        drug.drug_format,
+        drug.drug_unit,
         prescription.drug_usage,
         prescription.drug_number,
         prescription.state,
@@ -16,11 +20,17 @@
 
     <sql id="queueFilters">
         WHERE prescription.state = #{state}
-        <if test="keywordId != null">
+        <if test="keyword != null and keyword != ''">
             AND (
-                prescription.id = #{keywordId}
-                OR prescription.register_id = #{keywordId}
-                OR prescription.drug_id = #{keywordId}
+                <if test="keywordId != null">
+                    prescription.id = #{keywordId}
+                    OR prescription.register_id = #{keywordId}
+                    OR prescription.drug_id = #{keywordId}
+                    OR
+                </if>
+                drug.drug_code LIKE CONCAT('%', #{keyword}, '%')
+                OR drug.drug_name LIKE CONCAT('%', #{keyword}, '%')
+                OR drug.mnemonic_code LIKE CONCAT('%', #{keyword}, '%')
             )
         </if>
     </sql>
@@ -28,6 +38,7 @@
     <select id="findById" resultType="com.hospital.his.pharmacy.persistence.model.PrescriptionRow">
         SELECT <include refid="columns"/>
         FROM prescription
+        LEFT JOIN drug_info drug ON drug.id = prescription.drug_id
         LEFT JOIN drug_stock ON drug_stock.drug_id = prescription.drug_id
         WHERE prescription.id = #{id}
     </select>
@@ -35,6 +46,7 @@
     <select id="findQueue" resultType="com.hospital.his.pharmacy.persistence.model.PrescriptionRow">
         SELECT <include refid="columns"/>
         FROM prescription
+        LEFT JOIN drug_info drug ON drug.id = prescription.drug_id
         LEFT JOIN drug_stock ON drug_stock.drug_id = prescription.drug_id
         <include refid="queueFilters"/>
         ORDER BY prescription.created_at, prescription.id
@@ -44,6 +56,7 @@
     <select id="countQueue" resultType="long">
         SELECT COUNT(*)
         FROM prescription
+        LEFT JOIN drug_info drug ON drug.id = prescription.drug_id
         <include refid="queueFilters"/>
     </select>
 

@@ -44,7 +44,14 @@ interface EmployeeForm {
   id: number | null
   realName: string
   departmentId: number | ''
+  registLevelId: number | ''
+  schedulingId: number | ''
   active: boolean
+}
+
+interface SelectOption {
+  id: number
+  name: string
 }
 
 interface MaintenanceForm {
@@ -110,6 +117,7 @@ const lookupConfigs: LookupConfig[] = [
       { prop: 'realName', label: '姓名', minWidth: 140 },
       { prop: 'departmentName', label: '所属科室', minWidth: 150 },
       { prop: 'registLevelName', label: '挂号级别', minWidth: 130, formatter: (row) => String(row.registLevelName ?? '-') },
+      { prop: 'schedulingName', label: '排班规则', minWidth: 140, formatter: (row) => String(row.schedulingName ?? '-') },
       { prop: 'active', label: '状态', width: 110, formatter: activeLabel },
     ],
   },
@@ -215,6 +223,8 @@ const activeTab = ref<MasterDataTab>('departments')
 const auth = useAuthStore()
 
 const departments = ref<Department[]>([])
+const registLevelOptions = ref<SelectOption[]>([])
+const schedulingOptions = ref<SelectOption[]>([])
 const total = ref(0)
 const lookupRows = ref<LookupRow[]>([])
 const lookupTotal = ref(0)
@@ -253,6 +263,8 @@ const employeeForm = reactive<EmployeeForm>({
   id: null,
   realName: '',
   departmentId: '',
+  registLevelId: '',
+  schedulingId: '',
   active: true,
 })
 
@@ -317,6 +329,8 @@ const maintenanceRules: FormRules<MaintenanceForm> = {
 
 const dialogTitle = computed(() => (form.id ? '编辑科室' : '新增科室'))
 const employeeDialogTitle = computed(() => (employeeForm.id ? '编辑员工' : '新增员工'))
+const employeeDepartment = computed(() => departments.value.find((item) => item.id === employeeForm.departmentId))
+const employeeIsOutpatient = computed(() => employeeDepartment.value?.type === 'OUTPATIENT')
 const canWriteMasterData = computed(() => auth.hasPermission('master-data:write'))
 const visibleLookupConfigs = computed(() => lookupConfigs.filter((item) => canWriteMasterData.value || item.name !== 'scheduling'))
 const activeLookupConfig = computed(() => visibleLookupConfigs.value.find((item) => item.name === activeTab.value))
@@ -353,6 +367,24 @@ async function loadDepartments() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadEmployeeOptions() {
+  if (registLevelOptions.value.length && schedulingOptions.value.length) return
+  const [registLevelsResponse, schedulingResponse] = await Promise.all([
+    http.get<ApiResponse<LookupRow[]>>('/master-data/regist-levels'),
+    http.get<ApiResponse<PageData<LookupRow>>>('/master-data/scheduling/manage', {
+      params: { active: true, page: 1, size: 100 },
+    }),
+  ])
+  registLevelOptions.value = registLevelsResponse.data.data.map((item) => ({
+    id: item.id,
+    name: String(item.name),
+  }))
+  schedulingOptions.value = schedulingResponse.data.data.items.map((item) => ({
+    id: item.id,
+    name: String(item.name),
+  }))
 }
 
 async function loadLookup() {
@@ -435,8 +467,11 @@ function openCreateEmployeeDialog() {
     id: null,
     realName: '',
     departmentId: '',
+    registLevelId: '',
+    schedulingId: '',
     active: true,
   })
+  void loadEmployeeOptions()
   employeeDialogVisible.value = true
 }
 
@@ -445,8 +480,11 @@ function openEditEmployeeDialog(row: LookupRow) {
     id: row.id,
     realName: String(row.realName ?? ''),
     departmentId: Number(row.departmentId),
+    registLevelId: typeof row.registLevelId === 'number' ? row.registLevelId : '',
+    schedulingId: typeof row.schedulingId === 'number' ? row.schedulingId : '',
     active: row.active !== false,
   })
+  void loadEmployeeOptions()
   employeeDialogVisible.value = true
 }
 
@@ -507,13 +545,17 @@ async function saveDepartment() {
 
 async function saveEmployee() {
   const valid = await employeeFormRef.value?.validate()
-  if (!valid || !employeeForm.departmentId) return
+  if (valid === false || !employeeForm.departmentId) return
+  if (employeeIsOutpatient.value && !employeeForm.registLevelId) {
+    ElMessage.warning('门诊员工必须选择挂号级别')
+    return
+  }
 
   const payload = {
     realName: employeeForm.realName.trim(),
     departmentId: employeeForm.departmentId,
-    registLevelId: null,
-    schedulingId: null,
+    registLevelId: employeeForm.registLevelId || null,
+    schedulingId: employeeForm.schedulingId || null,
     active: employeeForm.active,
   }
 
@@ -629,6 +671,7 @@ function handleTabChange(name: string | number) {
     return
   }
   lookupPagination.page = 1
+  if (name === 'employees') void loadEmployeeOptions()
   void loadLookup()
 }
 
@@ -736,8 +779,12 @@ onMounted(() => {
 })
 
 defineExpose({
+  employeeForm,
   maintenanceForm,
+  openCreateEmployeeDialog,
+  openEditEmployeeDialog,
   openCreateMaintenanceDialog,
+  saveEmployee,
   saveMaintenance,
 })
 </script>
@@ -928,6 +975,16 @@ defineExpose({
         <el-form-item label="所属科室" prop="departmentId">
           <el-select v-model="employeeForm.departmentId" class="full-width">
             <el-option v-for="item in departments" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="挂号级别" :required="employeeIsOutpatient">
+          <el-select v-model="employeeForm.registLevelId" class="full-width" clearable placeholder="非门诊员工可不选">
+            <el-option v-for="item in registLevelOptions" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="排班规则">
+          <el-select v-model="employeeForm.schedulingId" class="full-width" clearable placeholder="请选择排班规则">
+            <el-option v-for="item in schedulingOptions" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="启用状态">

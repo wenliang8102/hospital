@@ -74,6 +74,8 @@ const employeesResponse = {
           departmentName: '心内科',
           registLevelId: 1,
           registLevelName: '普通号',
+          schedulingId: 1,
+          schedulingName: '工作日排班',
           active: true,
         },
       ],
@@ -81,6 +83,15 @@ const employeesResponse = {
       size: 20,
       total: 1,
     },
+  },
+}
+
+const registLevelsResponse = {
+  data: {
+    code: 'OK',
+    message: 'success',
+    timestamp: '2026-09-16T12:00:00Z',
+    data: [{ id: 1, code: 'GENERAL', name: '普通号', fee: 8, quota: 100 }],
   },
 }
 
@@ -125,7 +136,10 @@ function mountView(permissions = ['master-data:read', 'master-data:write']) {
       stubs: {
         ElButton: { template: '<button type="button" @click="$emit(\'click\')"><slot /></button>' },
         ElDialog: { template: '<div><slot /><slot name="footer" /></div>' },
-        ElForm: { template: '<form><slot /></form>' },
+        ElForm: {
+          template: '<form><slot /></form>',
+          methods: { validate: () => Promise.resolve(true) },
+        },
         ElFormItem: { template: '<label><slot /></label>' },
         ElIcon: { template: '<i><slot /></i>' },
         ElInput: { template: '<input />' },
@@ -169,6 +183,7 @@ describe('MasterDataView', () => {
       if (url === '/master-data/drugs/manage') return Promise.resolve(drugsResponse)
       if (url === '/master-data/scheduling/manage') return Promise.resolve(schedulingResponse)
       if (url === '/master-data/employees/manage') return Promise.resolve(employeesResponse)
+      if (url === '/master-data/regist-levels') return Promise.resolve(registLevelsResponse)
       return Promise.resolve(departmentsResponse)
     })
     vi.mocked(http.post).mockResolvedValue({ data: { ...departmentsResponse.data, data: departmentsResponse.data.data.items[0] } })
@@ -316,6 +331,28 @@ describe('MasterDataView', () => {
     expect(wrapper.text()).toContain('新增员工')
     expect(wrapper.text()).toContain('王医生')
     expect(wrapper.text()).toContain('心内科')
+  })
+
+  it('preserves registration level and scheduling when updating an employee', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const view = wrapper.vm as unknown as {
+      employeeForm: Record<string, unknown>
+      openEditEmployeeDialog: (row: Record<string, unknown>) => void
+      saveEmployee: () => Promise<void>
+    }
+    view.openEditEmployeeDialog(employeesResponse.data.data.items[0])
+    await flushPromises()
+    await view.saveEmployee()
+
+    expect(http.put).toHaveBeenCalledWith('/master-data/employees/manage/1', {
+      realName: '王医生',
+      departmentId: 1,
+      registLevelId: 1,
+      schedulingId: 1,
+      active: true,
+    })
   })
 
   it('hides write actions when user only has master data read permission', async () => {

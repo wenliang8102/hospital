@@ -60,6 +60,7 @@ class PlatformEmployeeAccountApiTest {
         long outpatientId = insertDepartment("CARD", "心内科", "OUTPATIENT");
         long pharmacyId = insertDepartment("PHARM", "药房", "PHARMACY");
         long generalId = insertRegistLevel("GENERAL", "普通号");
+        long schedulingId = insertScheduling("工作日排班");
 
         mockMvc.perform(post("/api/master-data/employees/manage")
                         .contentType("application/json")
@@ -68,16 +69,18 @@ class PlatformEmployeeAccountApiTest {
                                   "realName": "王医生",
                                   "departmentId": %d,
                                   "registLevelId": %d,
-                                  "schedulingId": null,
+                                  "schedulingId": %d,
                                   "active": true
                                 }
-                                """.formatted(outpatientId, generalId))
+                                """.formatted(outpatientId, generalId, schedulingId))
                         .with(masterDataWriteJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").isNumber())
                 .andExpect(jsonPath("$.data.realName").value("王医生"))
                 .andExpect(jsonPath("$.data.departmentName").value("心内科"))
-                .andExpect(jsonPath("$.data.registLevelName").value("普通号"));
+                .andExpect(jsonPath("$.data.registLevelName").value("普通号"))
+                .andExpect(jsonPath("$.data.schedulingId").value(schedulingId))
+                .andExpect(jsonPath("$.data.schedulingName").value("工作日排班"));
 
         Long employeeId = jdbcTemplate.queryForObject("SELECT id FROM employee WHERE real_name = ?", Long.class, "王医生");
 
@@ -238,6 +241,12 @@ class PlatformEmployeeAccountApiTest {
         jdbcTemplate.update("INSERT INTO regist_level (regist_code, regist_name, active) VALUES (?, ?, TRUE)",
                 code, name);
         return jdbcTemplate.queryForObject("SELECT id FROM regist_level WHERE regist_code = ?", Long.class, code);
+    }
+
+    private long insertScheduling(String name) {
+        jdbcTemplate.update("INSERT INTO scheduling (rule_name, week_rule, active) VALUES (?, '00111111111000', TRUE)",
+                name);
+        return jdbcTemplate.queryForObject("SELECT id FROM scheduling WHERE rule_name = ?", Long.class, name);
     }
 
     private long insertEmployee(String realName, long departmentId) {

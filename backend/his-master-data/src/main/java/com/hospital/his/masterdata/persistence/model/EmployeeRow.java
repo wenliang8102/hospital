@@ -7,5 +7,7 @@ public record EmployeeRow(
         String departmentName,
         Long registLevelId,
         String registLevelName,
+        Long schedulingId,
+        String schedulingName,
         boolean active) {
 }

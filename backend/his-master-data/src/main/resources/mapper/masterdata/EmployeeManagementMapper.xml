@@ -8,6 +8,8 @@
         d.dept_name AS departmentName,
         e.regist_level_id AS registLevelId,
         r.regist_name AS registLevelName,
+        e.scheduling_id AS schedulingId,
+        s.rule_name AS schedulingName,
         e.active
     </sql>
 
@@ -15,6 +17,7 @@
         FROM employee e
         JOIN department d ON d.id = e.department_id
         LEFT JOIN regist_level r ON r.id = e.regist_level_id
+        LEFT JOIN scheduling s ON s.id = e.scheduling_id
     </sql>
 
     <sql id="filters">

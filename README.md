@@ -40,6 +40,20 @@ hospital/
 
 环境要求：JDK 21、Node.js 22+、MySQL 8.x。
 
+完成数据库和根目录 `.env` 的首次配置后，在项目根目录一条命令即可启动前后端：
+
+```bat
+dev
+```
+
+PowerShell 不会默认从当前目录解析命令，因此使用：
+
+```powershell
+.\dev
+```
+
+启动器会在缺少 `frontend/node_modules` 时自动安装依赖、编译并启动后端、启动前端，等待两个服务就绪后打印访问地址。按 `Ctrl+C` 会同时停止两个服务。
+
 先在本机 MySQL 中创建开发数据库：
 
 ```sql
@@ -49,21 +63,9 @@ CREATE DATABASE his
 ```
 
 ```powershell
-# 1. 配置本机数据库连接
-$env:DB_URL="jdbc:mysql://localhost:3306/his?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false"
-$env:DB_USERNAME="root"
-$env:DB_PASSWORD="你的本机 MySQL 密码"
-$env:HIS_JWT_SECRET="至少 32 位的本机开发密钥"
-$env:HIS_BOOTSTRAP_ADMIN_PASSWORD="首次启动时创建 admin 使用的密码"
-
-# 2. 启动后端
-cd backend
-.\mvnw.cmd spring-boot:run -pl his-application -am
-
-# 3. 启动前端（另一个终端）
-cd frontend
-npm install
-npm run dev
+Copy-Item .env.example .env
+# 编辑 .env，填写本机 MySQL 密码和开发用 JWT 密钥
+.\dev
 ```
 
 默认地址：
